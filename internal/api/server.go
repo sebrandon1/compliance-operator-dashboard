@@ -55,6 +55,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/results/{name}", s.handlers.HandleGetCheckResult)
 	mux.HandleFunc("GET /api/results", s.handlers.HandleGetResults)
 	mux.HandleFunc("POST /api/remediate/{name}", s.handlers.HandleApplyRemediation)
+	mux.HandleFunc("POST /api/remediate", s.handlers.HandleBatchApplyRemediations)
+	mux.HandleFunc("DELETE /api/remediate/{name}", s.handlers.HandleRemoveRemediation)
 	mux.HandleFunc("GET /api/remediations/{name}", s.handlers.HandleGetRemediation)
 	mux.HandleFunc("GET /api/remediations", s.handlers.HandleListRemediations)
 	mux.HandleFunc("GET /ws/watch", s.handlers.HandleWebSocket)
