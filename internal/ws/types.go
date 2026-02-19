@@ -10,8 +10,9 @@ const (
 	MessageTypeScanStatus      MessageType = "scan_status"
 	MessageTypeCheckResult     MessageType = "check_result"
 	MessageTypeRemediation     MessageType = "remediation"
-	MessageTypeRemediationResult MessageType = "remediation_result"
-	MessageTypeError           MessageType = "error"
+	MessageTypeRemediationResult  MessageType = "remediation_result"
+	MessageTypeUninstallProgress MessageType = "uninstall_progress"
+	MessageTypeError             MessageType = "error"
 )
 
 // Message is a typed WebSocket message envelope.

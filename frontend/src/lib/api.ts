@@ -40,6 +40,9 @@ export const operatorApi = {
 
   install: async (): Promise<{ message: string }> =>
     unwrap(await api.post('/operator/install')),
+
+  uninstall: async (): Promise<{ message: string }> =>
+    unwrap(await api.delete('/operator')),
 };
 
 export const scanApi = {
@@ -54,6 +57,12 @@ export const scanApi = {
 
   listProfiles: async (): Promise<ProfileInfo[]> =>
     unwrap(await api.get('/profiles')),
+
+  rescan: async (name: string): Promise<{ message: string }> =>
+    unwrap(await api.post(`/scans/${encodeURIComponent(name)}/rescan`)),
+
+  delete: async (name: string): Promise<{ message: string }> =>
+    unwrap(await api.delete(`/scans/${encodeURIComponent(name)}`)),
 };
 
 export const resultsApi = {

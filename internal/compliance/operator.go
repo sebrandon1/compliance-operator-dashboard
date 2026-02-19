@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/sebrandon1/compliance-operator-dashboard/internal/k8s"
 )
@@ -303,6 +304,127 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 	}
 
 	sendDone("complete", "Compliance Operator installed successfully")
+}
+
+// Uninstall removes the Compliance Operator and all its resources.
+// It sends progress updates to the provided channel.
+func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progress chan<- InstallProgress) {
+	defer close(progress)
+
+	sendProgress := func(step, message string) {
+		progress <- InstallProgress{Step: step, Message: message}
+	}
+	sendError := func(step, message string) {
+		progress <- InstallProgress{Step: step, Message: message, Error: message, Done: true}
+	}
+	sendDone := func(step, message string) {
+		progress <- InstallProgress{Step: step, Message: message, Done: true}
+	}
+
+	if client == nil {
+		sendError("init", "Kubernetes client is not connected")
+		return
+	}
+
+	finalizerPatch := []byte(`{"metadata":{"finalizers":null}}`)
+
+	// Step 1: Delete all Compliance CRs (remove finalizers first)
+	complianceCRDs := []struct {
+		name string
+		gvr  schema.GroupVersionResource
+	}{
+		{"ComplianceCheckResults", complianceCheckResultGVR},
+		{"ComplianceRemediations", complianceRemediationGVR},
+		{"ComplianceSuites", complianceSuiteGVR},
+		{"ComplianceScans", complianceScanGVR},
+		{"ScanSettingBindings", scanSettingBindingGVR},
+		{"ScanSettings", scanSettingGVR},
+		{"ProfileBundles", profileBundleGVR},
+		{"Profiles", profileGVR},
+	}
+
+	for _, crd := range complianceCRDs {
+		sendProgress("cleanup", fmt.Sprintf("Removing %s...", crd.name))
+		items, err := client.Dynamic.Resource(crd.gvr).Namespace(namespace).
+			List(ctx, metav1.ListOptions{})
+		if err != nil {
+			log.Printf("Warning: listing %s: %v", crd.name, err)
+			continue
+		}
+		for _, item := range items.Items {
+			// Remove finalizers
+			_, _ = client.Dynamic.Resource(crd.gvr).Namespace(namespace).
+				Patch(ctx, item.GetName(), types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
+			// Delete
+			_ = client.Dynamic.Resource(crd.gvr).Namespace(namespace).
+				Delete(ctx, item.GetName(), metav1.DeleteOptions{})
+		}
+	}
+	sendProgress("cleanup", "Compliance resources removed")
+
+	// Step 2: Delete Subscription
+	sendProgress("subscription", "Deleting Subscription...")
+	err := client.Dynamic.Resource(subscriptionGVR).Namespace(namespace).
+		Delete(ctx, subscriptionName, metav1.DeleteOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		log.Printf("Warning: deleting Subscription: %v", err)
+	}
+	sendProgress("subscription", "Subscription deleted")
+
+	// Step 3: Delete CSV
+	sendProgress("csv", "Deleting ClusterServiceVersion...")
+	csvs, err := client.Dynamic.Resource(csvGVR).Namespace(namespace).
+		List(ctx, metav1.ListOptions{})
+	if err == nil {
+		for _, csv := range csvs.Items {
+			_ = client.Dynamic.Resource(csvGVR).Namespace(namespace).
+				Delete(ctx, csv.GetName(), metav1.DeleteOptions{})
+		}
+	}
+	sendProgress("csv", "ClusterServiceVersion deleted")
+
+	// Step 4: Delete OperatorGroup
+	sendProgress("operatorgroup", "Deleting OperatorGroup...")
+	err = client.Dynamic.Resource(operatorGroupGVR).Namespace(namespace).
+		Delete(ctx, operatorName, metav1.DeleteOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		log.Printf("Warning: deleting OperatorGroup: %v", err)
+	}
+	sendProgress("operatorgroup", "OperatorGroup deleted")
+
+	// Step 5: Delete CatalogSource (community install)
+	sendProgress("catalogsource", "Deleting CatalogSource...")
+	err = client.Dynamic.Resource(catalogSourceGVR).Namespace(marketplaceNS).
+		Delete(ctx, operatorName, metav1.DeleteOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		log.Printf("Warning: deleting CatalogSource: %v", err)
+	}
+	sendProgress("catalogsource", "CatalogSource deleted")
+
+	// Step 6: Delete namespace
+	sendProgress("namespace", fmt.Sprintf("Deleting namespace %s...", namespace))
+	err = client.Clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		sendError("namespace", fmt.Sprintf("Failed to delete namespace: %v", err))
+		return
+	}
+
+	// Wait for namespace deletion
+	for i := 0; i < 30; i++ {
+		_, err := client.Clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+		if err != nil {
+			break // Namespace is gone
+		}
+		select {
+		case <-ctx.Done():
+			sendError("namespace", "Timed out waiting for namespace deletion")
+			return
+		case <-time.After(5 * time.Second):
+		}
+	}
+	sendProgress("namespace", "Namespace deleted")
+
+	sendDone("complete", "Compliance Operator uninstalled successfully")
 }
 
 // GetStatus returns the current status of the Compliance Operator.

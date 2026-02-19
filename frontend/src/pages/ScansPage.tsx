@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Radar, Clock, CheckCircle2, XCircle, AlertTriangle, Plus, Play, Zap } from 'lucide-react';
+import { Radar, Clock, CheckCircle2, XCircle, AlertTriangle, Plus, Play, Zap, RefreshCw, Trash2 } from 'lucide-react';
 import { scanApi } from '../lib/api';
 import { useDashboardStore } from '../lib/store';
 import type { SuiteStatus, ScanStatus, ProfileInfo } from '../types/api';
@@ -153,6 +153,9 @@ export default function ScansPage() {
   const [creating, setCreating] = useState(false);
   const [creatingRecommended, setCreatingRecommended] = useState(false);
   const [createMsg, setCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [rescanning, setRescanning] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const { updateCounter, clusterStatus } = useDashboardStore();
 
   const fetchScans = useCallback(async () => {
@@ -236,6 +239,35 @@ export default function ScansPage() {
       setCreateMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create recommended scans' });
     } finally {
       setCreatingRecommended(false);
+    }
+  };
+
+  const handleRescan = async (suiteName: string) => {
+    setRescanning(suiteName);
+    setCreateMsg(null);
+    try {
+      await scanApi.rescan(suiteName);
+      setCreateMsg({ type: 'success', text: `Rescan triggered for "${suiteName}". Scans will restart shortly.` });
+      setTimeout(fetchScans, 3000);
+    } catch (err) {
+      setCreateMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to trigger rescan' });
+    } finally {
+      setRescanning(null);
+    }
+  };
+
+  const handleDeleteScan = async (suiteName: string) => {
+    setDeleting(suiteName);
+    setCreateMsg(null);
+    try {
+      await scanApi.delete(suiteName);
+      setCreateMsg({ type: 'success', text: `Suite "${suiteName}" deleted successfully.` });
+      setConfirmDelete(null);
+      setTimeout(fetchScans, 2000);
+    } catch (err) {
+      setCreateMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to delete scan' });
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -405,11 +437,56 @@ export default function ScansPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      className="btn btn-secondary text-xs px-2.5 py-1.5"
+                      disabled={rescanning === suite.name}
+                      onClick={() => handleRescan(suite.name)}
+                      title="Rescan"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${rescanning === suite.name ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      className="btn text-xs px-2.5 py-1.5 border border-red-200 text-red-600 hover:bg-red-50"
+                      disabled={deleting === suite.name}
+                      onClick={() => setConfirmDelete(suite.name)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                     {phaseBadge(suite.phase)}
                     {resultBadge(suite.result)}
                   </div>
                 </div>
               </div>
+
+              {/* Delete confirmation */}
+              {confirmDelete === suite.name && (
+                <div className="px-5 py-3 bg-red-50 border-b border-red-200">
+                  <p className="text-sm text-red-700 mb-2">
+                    Are you sure you want to delete suite <strong>{suite.name}</strong>? This will remove the ComplianceSuite and its ScanSettingBinding.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      className="btn text-xs px-3 py-1.5 bg-red-600 text-white hover:bg-red-700"
+                      disabled={deleting === suite.name}
+                      onClick={() => handleDeleteScan(suite.name)}
+                    >
+                      {deleting === suite.name ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {deleting === suite.name ? 'Deleting...' : 'Delete'}
+                    </button>
+                    <button
+                      className="btn btn-secondary text-xs px-3 py-1.5"
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Conditions */}
               {suite.conditions && suite.conditions.length > 0 && (

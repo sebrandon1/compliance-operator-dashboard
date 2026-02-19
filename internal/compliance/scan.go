@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/sebrandon1/compliance-operator-dashboard/internal/k8s"
 )
@@ -388,6 +389,75 @@ func CreateRecommendedScans(ctx context.Context, client *k8s.Client, namespace s
 	}
 
 	return created, errs
+}
+
+// RescanSuite triggers a rescan of all ComplianceScans belonging to the named suite.
+// It annotates each scan with compliance.openshift.io/rescan to trigger the operator.
+func RescanSuite(ctx context.Context, client *k8s.Client, namespace, suiteName string) error {
+	if client == nil {
+		return fmt.Errorf("kubernetes client is nil")
+	}
+
+	scans, err := client.Dynamic.Resource(complianceScanGVR).Namespace(namespace).
+		List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("compliance.openshift.io/suite=%s", suiteName),
+		})
+	if err != nil {
+		return fmt.Errorf("listing ComplianceScans for suite %s: %w", suiteName, err)
+	}
+
+	if len(scans.Items) == 0 {
+		return fmt.Errorf("no ComplianceScans found for suite %s", suiteName)
+	}
+
+	patch := []byte(`{"metadata":{"annotations":{"compliance.openshift.io/rescan":""}}}`)
+	for _, scan := range scans.Items {
+		_, err := client.Dynamic.Resource(complianceScanGVR).Namespace(namespace).
+			Patch(ctx, scan.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("annotating ComplianceScan %s for rescan: %w", scan.GetName(), err)
+		}
+	}
+
+	return nil
+}
+
+// DeleteScan deletes a ComplianceSuite and its matching ScanSettingBinding.
+// Finalizers are removed first to prevent deletion from hanging.
+func DeleteScan(ctx context.Context, client *k8s.Client, namespace, suiteName string) error {
+	if client == nil {
+		return fmt.Errorf("kubernetes client is nil")
+	}
+
+	finalizerPatch := []byte(`{"metadata":{"finalizers":null}}`)
+
+	// Remove finalizers and delete the ComplianceSuite
+	_, err := client.Dynamic.Resource(complianceSuiteGVR).Namespace(namespace).
+		Patch(ctx, suiteName, types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		return fmt.Errorf("removing finalizers from ComplianceSuite %s: %w", suiteName, err)
+	}
+
+	err = client.Dynamic.Resource(complianceSuiteGVR).Namespace(namespace).
+		Delete(ctx, suiteName, metav1.DeleteOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		return fmt.Errorf("deleting ComplianceSuite %s: %w", suiteName, err)
+	}
+
+	// Remove finalizers and delete the matching ScanSettingBinding
+	_, err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
+		Patch(ctx, suiteName, types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		// Non-fatal: the binding name may not match the suite name
+	}
+
+	err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
+		Delete(ctx, suiteName, metav1.DeleteOptions{})
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		// Non-fatal: binding may have a different name
+	}
+
+	return nil
 }
 
 // ListProfiles returns all available compliance profiles.
