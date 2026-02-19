@@ -128,9 +128,14 @@ function ScanCard({ scan }: { scan: ScanStatus }) {
       </div>
 
       {scan.warnings && (
-        <div className="mt-3 flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 rounded-md p-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
-          <span className="text-amber-700">{scan.warnings}</span>
+        <div className="mt-3 text-xs bg-amber-50 border border-amber-200 rounded-md p-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-medium text-amber-800">Scan Warning</span>
+              <p className="text-amber-700 mt-0.5">{scan.warnings}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
