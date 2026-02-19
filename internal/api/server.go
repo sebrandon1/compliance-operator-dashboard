@@ -44,6 +44,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/cluster/status", s.handlers.HandleClusterStatus)
 	mux.HandleFunc("POST /api/operator/install", s.handlers.HandleOperatorInstall)
 	mux.HandleFunc("GET /api/operator/status", s.handlers.HandleOperatorStatus)
+	mux.HandleFunc("POST /api/scans/recommended", s.handlers.HandleCreateRecommendedScans)
 	mux.HandleFunc("POST /api/scans", s.handlers.HandleCreateScan)
 	mux.HandleFunc("GET /api/scans", s.handlers.HandleListScans)
 	mux.HandleFunc("GET /api/profiles", s.handlers.HandleListProfiles)

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -169,6 +170,27 @@ func (h *Handlers) HandleListProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, profiles)
+}
+
+// HandleCreateRecommendedScans creates scans for the 4 recommended profiles.
+func (h *Handlers) HandleCreateRecommendedScans(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Not connected to Kubernetes cluster")
+		return
+	}
+
+	created, errs := compliance.CreateRecommendedScans(r.Context(), h.k8sClient, h.namespace)
+
+	var errMsgs []string
+	for _, e := range errs {
+		errMsgs = append(errMsgs, e.Error())
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"message": fmt.Sprintf("Created %d recommended scans", len(created)),
+		"created": created,
+		"errors":  errMsgs,
+	})
 }
 
 // HandleGetResults returns full compliance results with optional filtering.

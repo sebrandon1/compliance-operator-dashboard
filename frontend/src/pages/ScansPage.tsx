@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Radar, Clock, CheckCircle2, XCircle, AlertTriangle, Plus, Play } from 'lucide-react';
+import { Radar, Clock, CheckCircle2, XCircle, AlertTriangle, Plus, Play, Zap } from 'lucide-react';
 import { scanApi } from '../lib/api';
 import { useDashboardStore } from '../lib/store';
 import type { SuiteStatus, ScanStatus, ProfileInfo } from '../types/api';
@@ -151,6 +151,7 @@ export default function ScansPage() {
   const [selectedProfile, setSelectedProfile] = useState('');
   const [scanName, setScanName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [creatingRecommended, setCreatingRecommended] = useState(false);
   const [createMsg, setCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { updateCounter, clusterStatus } = useDashboardStore();
 
@@ -214,7 +215,33 @@ export default function ScansPage() {
     }
   };
 
+  const handleScanRecommended = async () => {
+    setCreatingRecommended(true);
+    setCreateMsg(null);
+    try {
+      const result = await scanApi.createRecommended();
+      const parts: string[] = [];
+      if (result.created?.length) {
+        parts.push(`Created: ${result.created.join(', ')}`);
+      }
+      if (result.errors?.length) {
+        parts.push(`Errors: ${result.errors.join('; ')}`);
+      }
+      setCreateMsg({
+        type: result.errors?.length ? 'error' : 'success',
+        text: parts.join('. ') || result.message,
+      });
+      setTimeout(fetchScans, 3000);
+    } catch (err) {
+      setCreateMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create recommended scans' });
+    } finally {
+      setCreatingRecommended(false);
+    }
+  };
+
   // Determine which profiles already have a scan running or done
+  const recommendedProfileNames = new Set(['ocp4-cis', 'ocp4-moderate', 'ocp4-pci-dss', 'rhcos4-moderate']);
+
   const scannedProfiles = new Set<string>();
   for (const suite of suites) {
     for (const scan of suite.scans || []) {
@@ -238,6 +265,18 @@ export default function ScansPage() {
           </button>
           <button
             className="btn btn-primary"
+            disabled={creatingRecommended}
+            onClick={handleScanRecommended}
+          >
+            {creatingRecommended ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
+            ) : (
+              <Zap className="h-4 w-4 mr-1" />
+            )}
+            {creatingRecommended ? 'Creating...' : 'Scan Recommended'}
+          </button>
+          <button
+            className="btn btn-secondary"
             onClick={() => setShowNewScan(!showNewScan)}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -425,11 +464,15 @@ export default function ScansPage() {
           <div className="divide-y divide-gray-100">
             {profiles.map(profile => {
               const hasBeenScanned = scannedProfiles.has(profile.name);
+              const isRecommended = recommendedProfileNames.has(profile.name);
               return (
                 <div key={profile.name} className="px-5 py-3 flex items-center justify-between">
                   <div className="flex-1 min-w-0 mr-4">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs text-gray-900">{profile.name}</span>
+                      {isRecommended && (
+                        <span className="badge bg-primary-100 text-primary-700 text-[10px]">Recommended</span>
+                      )}
                       {hasBeenScanned && (
                         <span className="badge bg-emerald-100 text-emerald-700 text-[10px]">Scanned</span>
                       )}

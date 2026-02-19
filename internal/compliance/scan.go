@@ -363,6 +363,33 @@ func GetScanStatus(ctx context.Context, client *k8s.Client, namespace string) ([
 	return statuses, nil
 }
 
+// RecommendedProfiles is the set of profiles that provide broad compliance
+// coverage without redundancy: CIS, NIST 800-53 Moderate (platform + node),
+// and PCI-DSS.
+var RecommendedProfiles = []ScanOptions{
+	{Name: "ocp4-cis-scan", Profile: "ocp4-cis"},
+	{Name: "ocp4-moderate-scan", Profile: "ocp4-moderate"},
+	{Name: "ocp4-pci-dss-scan", Profile: "ocp4-pci-dss"},
+	{Name: "rhcos4-moderate-scan", Profile: "rhcos4-moderate"},
+}
+
+// CreateRecommendedScans creates scans for all recommended profiles.
+func CreateRecommendedScans(ctx context.Context, client *k8s.Client, namespace string) ([]string, []error) {
+	var created []string
+	var errs []error
+
+	for _, opts := range RecommendedProfiles {
+		opts.Namespace = namespace
+		if err := CreateScan(ctx, client, opts); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", opts.Profile, err))
+		} else {
+			created = append(created, opts.Name)
+		}
+	}
+
+	return created, errs
+}
+
 // ListProfiles returns all available compliance profiles.
 func ListProfiles(ctx context.Context, client *k8s.Client, namespace string) ([]ProfileInfo, error) {
 	if client == nil {

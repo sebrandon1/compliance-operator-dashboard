@@ -46,6 +46,9 @@ export const scanApi = {
   create: async (opts: ScanOptions): Promise<{ message: string; name: string }> =>
     unwrap(await api.post('/scans', opts)),
 
+  createRecommended: async (): Promise<{ message: string; created: string[]; errors: string[] }> =>
+    unwrap(await api.post('/scans/recommended')),
+
   list: async (): Promise<SuiteStatus[]> =>
     unwrap(await api.get('/scans')),
 
