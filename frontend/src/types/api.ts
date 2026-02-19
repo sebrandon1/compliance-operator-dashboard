@@ -173,6 +173,7 @@ export type WSMessageType =
   | 'cluster_status'
   | 'operator_status'
   | 'install_progress'
+  | 'uninstall_progress'
   | 'scan_status'
   | 'check_result'
   | 'remediation'

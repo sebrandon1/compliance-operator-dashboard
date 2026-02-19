@@ -50,9 +50,18 @@ make clean                 # Remove build artifacts
 - Frontend uses Zustand for state, axios for API calls, custom WebSocket hook
 - Single binary: `go:embed all:frontend/dist` serves the React SPA
 
+## Operator Versioning
+
+There are two distribution channels for the Compliance Operator with **different version numbers**:
+
+- **Red Hat certified** (`redhat-operators` catalog): Versioned independently by Red Hat (e.g., v1.8.2). The source for these builds is internal to Red Hat's build system and not publicly tagged on GitHub. The old downstream repo at [openshift/compliance-operator](https://github.com/openshift/compliance-operator) is deprecated.
+- **Upstream/community** ([ComplianceAsCode/compliance-operator](https://github.com/ComplianceAsCode/compliance-operator)): Latest release is v1.7.0. Used when `redhat-operators` is not available on the cluster.
+
+The dashboard auto-detects which source to use: if the cluster has `redhat-operators` in `openshift-marketplace`, it installs the Red Hat certified version (which may have a higher version number than the upstream). Otherwise it falls back to the community catalog image from `ghcr.io`. The `--co-ref` flag only applies to the community install path.
+
 ## Flags
 
 - `--kubeconfig` / `$KUBECONFIG` / `~/.kube/config`
 - `--namespace` / `$COMPLIANCE_NAMESPACE` / `openshift-compliance`
 - `--port` / `8080`
-- `--co-ref` / `$COMPLIANCE_OPERATOR_REF` / latest from GitHub
+- `--co-ref` / `$COMPLIANCE_OPERATOR_REF` / latest from GitHub (community install only)

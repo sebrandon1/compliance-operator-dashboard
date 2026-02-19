@@ -1,19 +1,44 @@
 import { useEffect, useState } from 'react';
-import { Settings, CheckCircle, XCircle } from 'lucide-react';
+import { Settings, CheckCircle, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import OperatorInstallWizard from '../components/OperatorInstallWizard';
 import { useDashboardStore } from '../lib/store';
 import { operatorApi } from '../lib/api';
 import type { OperatorStatus } from '../types/api';
 
 export default function SettingsPage() {
-  const { clusterStatus, updateCounter } = useDashboardStore();
+  const { clusterStatus, updateCounter, uninstallProgress, clearUninstallProgress } = useDashboardStore();
   const [operatorStatus, setOperatorStatus] = useState<OperatorStatus | null>(null);
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
 
   useEffect(() => {
     if (clusterStatus?.connected) {
       operatorApi.getStatus().then(setOperatorStatus).catch(console.error);
     }
   }, [clusterStatus?.connected, updateCounter]);
+
+  // When uninstall completes, update local state
+  useEffect(() => {
+    const last = uninstallProgress[uninstallProgress.length - 1];
+    if (last?.done) {
+      setUninstalling(false);
+      if (!last.error) {
+        setOperatorStatus({ installed: false });
+      }
+    }
+  }, [uninstallProgress]);
+
+  const handleUninstall = async () => {
+    setUninstalling(true);
+    setConfirmUninstall(false);
+    clearUninstallProgress();
+    try {
+      await operatorApi.uninstall();
+    } catch (err) {
+      setUninstalling(false);
+      console.error('Uninstall request failed:', err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -125,6 +150,90 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Uninstall section (show when installed) */}
+      {operatorStatus?.installed && clusterStatus?.connected && (
+        <div className="card border-red-200">
+          <div className="px-6 py-4 border-b border-red-200 bg-red-50">
+            <h3 className="font-semibold text-red-900 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Danger Zone
+            </h3>
+          </div>
+          <div className="p-6">
+            {!uninstalling && uninstallProgress.length === 0 && (
+              <>
+                <p className="text-sm text-gray-600 mb-4">
+                  Uninstalling the Compliance Operator will remove all compliance resources,
+                  scan results, and the operator itself from the cluster.
+                </p>
+                {!confirmUninstall ? (
+                  <button
+                    className="btn px-4 py-2 bg-red-600 text-white hover:bg-red-700"
+                    onClick={() => setConfirmUninstall(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Uninstall Operator
+                  </button>
+                ) : (
+                  <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+                    <p className="text-sm text-red-800 font-medium mb-3">
+                      This action cannot be undone. All compliance data will be permanently deleted.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        className="btn px-4 py-2 bg-red-600 text-white hover:bg-red-700"
+                        onClick={handleUninstall}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Confirm Uninstall
+                      </button>
+                      <button
+                        className="btn btn-secondary px-4 py-2"
+                        onClick={() => setConfirmUninstall(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Uninstall progress */}
+            {(uninstalling || uninstallProgress.length > 0) && (
+              <div className="space-y-2">
+                {uninstallProgress.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    {p.error ? (
+                      <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                    ) : p.done ? (
+                      <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                    ) : (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary-600 shrink-0" />
+                    )}
+                    <span className={p.error ? 'text-red-700' : 'text-gray-700'}>{p.message}</span>
+                  </div>
+                ))}
+                {uninstalling && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary-600" />
+                    Uninstalling...
+                  </div>
+                )}
+                {!uninstalling && uninstallProgress.length > 0 && (
+                  <button
+                    className="btn btn-secondary text-xs mt-3"
+                    onClick={clearUninstallProgress}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Install Wizard (only show if not installed) */}
       {operatorStatus && !operatorStatus.installed && clusterStatus?.connected && (

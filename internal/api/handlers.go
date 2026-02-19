@@ -310,6 +310,85 @@ func (h *Handlers) HandleListRemediations(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, remediations)
 }
 
+// HandleRescan triggers a rescan of all ComplianceScans in a suite.
+func (h *Handlers) HandleRescan(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Not connected to Kubernetes cluster")
+		return
+	}
+
+	name := r.PathValue("name")
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "Scan suite name is required")
+		return
+	}
+
+	if err := compliance.RescanSuite(r.Context(), h.k8sClient, h.namespace, name); err != nil {
+		if strings.Contains(err.Error(), "no ComplianceScans found") {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Rescan triggered for suite %s", name),
+	})
+}
+
+// HandleDeleteScan deletes a ComplianceSuite and its ScanSettingBinding.
+func (h *Handlers) HandleDeleteScan(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Not connected to Kubernetes cluster")
+		return
+	}
+
+	name := r.PathValue("name")
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "Scan suite name is required")
+		return
+	}
+
+	if err := compliance.DeleteScan(r.Context(), h.k8sClient, h.namespace, name); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Suite %s deleted", name),
+	})
+}
+
+// HandleUninstallOperator starts the operator uninstallation process.
+func (h *Handlers) HandleUninstallOperator(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Not connected to Kubernetes cluster")
+		return
+	}
+
+	progress := make(chan compliance.InstallProgress, 32)
+
+	uninstallCtx := context.Background()
+
+	go func() {
+		compliance.Uninstall(uninstallCtx, h.k8sClient, h.namespace, progress)
+	}()
+
+	go func() {
+		for p := range progress {
+			h.hub.Broadcast(ws.Message{
+				Type:    ws.MessageTypeUninstallProgress,
+				Payload: p,
+			})
+		}
+	}()
+
+	writeJSON(w, http.StatusAccepted, map[string]string{
+		"message": "Uninstallation started. Follow progress via WebSocket.",
+	})
+}
+
 // HandleWebSocket upgrades to WebSocket connection.
 func (h *Handlers) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	ws.ServeWS(h.hub, w, r)

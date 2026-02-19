@@ -29,6 +29,11 @@ interface DashboardState {
   addInstallProgress: (progress: InstallProgress) => void;
   clearInstallProgress: () => void;
 
+  // Uninstall progress
+  uninstallProgress: InstallProgress[];
+  addUninstallProgress: (progress: InstallProgress) => void;
+  clearUninstallProgress: () => void;
+
   // Live updates counter (triggers refetches)
   updateCounter: number;
   incrementUpdateCounter: () => void;
@@ -57,6 +62,13 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     })),
   clearInstallProgress: () => set({ installProgress: [] }),
 
+  uninstallProgress: [],
+  addUninstallProgress: (progress) =>
+    set((state) => ({
+      uninstallProgress: [...state.uninstallProgress, progress],
+    })),
+  clearUninstallProgress: () => set({ uninstallProgress: [] }),
+
   updateCounter: 0,
   incrementUpdateCounter: () =>
     set((state) => ({ updateCounter: state.updateCounter + 1 })),
@@ -77,6 +89,17 @@ export const useDashboardStore = create<DashboardState>((set) => ({
           installProgress: [...state.installProgress, progress],
           // When install completes (or fails), trigger refetches across the app
           updateCounter: progress.done ? state.updateCounter + 1 : state.updateCounter,
+        }));
+        break;
+      }
+
+      case 'uninstall_progress': {
+        const progress = msg.payload as InstallProgress;
+        set((state) => ({
+          uninstallProgress: [...state.uninstallProgress, progress],
+          updateCounter: progress.done ? state.updateCounter + 1 : state.updateCounter,
+          // Clear operator status when uninstall completes successfully
+          ...(progress.done && !progress.error ? { operatorStatus: { installed: false } as OperatorStatus } : {}),
         }));
         break;
       }
