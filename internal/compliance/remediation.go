@@ -104,6 +104,12 @@ func ApplyRemediation(ctx context.Context, client *k8s.Client, namespace, name s
 		}
 	}
 
+	// Mark the ComplianceRemediation CR as applied so ListRemediations reflects the state
+	if err := unstructured.SetNestedField(rem.Object, true, "spec", "apply"); err == nil {
+		_, _ = client.Dynamic.Resource(complianceRemediationGVR).Namespace(namespace).
+			Update(ctx, rem, metav1.UpdateOptions{})
+	}
+
 	result.Applied = true
 	result.Message = fmt.Sprintf("Applied %s %s", kind, objName)
 
@@ -113,6 +119,85 @@ func ApplyRemediation(ctx context.Context, client *k8s.Client, namespace, name s
 		result.Message += fmt.Sprintf(" (MachineConfig - nodes with role %s will reboot)", role)
 	}
 
+	return result, nil
+}
+
+// RemoveRemediation deletes the object that was created by applying a remediation.
+// This allows users to back out a MachineConfig (or similar) change before the
+// MCO triggers a reboot cycle.
+func RemoveRemediation(ctx context.Context, client *k8s.Client, namespace, name string) (*RemediationResult, error) {
+	if client == nil {
+		return nil, fmt.Errorf("kubernetes client is nil")
+	}
+
+	result := &RemediationResult{Name: name}
+
+	// Get the remediation to find out what object it created
+	rem, err := client.Dynamic.Resource(complianceRemediationGVR).Namespace(namespace).
+		Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		result.Error = fmt.Sprintf("getting remediation: %v", err)
+		return result, fmt.Errorf("getting remediation %s: %w", name, err)
+	}
+
+	// Extract spec.current.object to determine what to delete
+	obj, found, err := unstructured.NestedMap(rem.Object, "spec", "current", "object")
+	if err != nil || !found {
+		result.Error = "remediation has no spec.current.object"
+		return result, fmt.Errorf("remediation %s has no spec.current.object", name)
+	}
+
+	remObj := &unstructured.Unstructured{Object: obj}
+	kind := remObj.GetKind()
+	apiVersion := remObj.GetAPIVersion()
+
+	if kind == "" || apiVersion == "" {
+		result.Error = "remediation object missing kind or apiVersion"
+		return result, fmt.Errorf("remediation %s object missing kind or apiVersion", name)
+	}
+
+	gvr, objNamespace, err := resolveGVR(kind, apiVersion, namespace)
+	if err != nil {
+		result.Error = fmt.Sprintf("resolving GVR: %v", err)
+		return result, err
+	}
+
+	if ns := remObj.GetNamespace(); ns != "" {
+		objNamespace = ns
+	}
+
+	objName := remObj.GetName()
+	if objName == "" {
+		objName = name
+	}
+
+	// Delete the object
+	if objNamespace != "" {
+		err = client.Dynamic.Resource(gvr).Namespace(objNamespace).
+			Delete(ctx, objName, metav1.DeleteOptions{})
+	} else {
+		err = client.Dynamic.Resource(gvr).
+			Delete(ctx, objName, metav1.DeleteOptions{})
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			result.Applied = false
+			result.Message = fmt.Sprintf("Object %s %s was already removed", kind, objName)
+			return result, nil
+		}
+		result.Error = fmt.Sprintf("deleting object: %v", err)
+		return result, fmt.Errorf("removing remediation %s: %w", name, err)
+	}
+
+	// Clear the applied flag on the ComplianceRemediation CR
+	if err := unstructured.SetNestedField(rem.Object, false, "spec", "apply"); err == nil {
+		_, _ = client.Dynamic.Resource(complianceRemediationGVR).Namespace(namespace).
+			Update(ctx, rem, metav1.UpdateOptions{})
+	}
+
+	result.Applied = false
+	result.Message = fmt.Sprintf("Removed %s %s", kind, objName)
 	return result, nil
 }
 

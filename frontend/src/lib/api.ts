@@ -92,6 +92,12 @@ export const remediationApi = {
 
   apply: async (name: string): Promise<RemediationResult> =>
     unwrap(await api.post(`/remediate/${encodeURIComponent(name)}`)),
+
+  applyBatch: async (names: string[]): Promise<RemediationResult[]> =>
+    unwrap(await api.post('/remediate', { names })),
+
+  remove: async (name: string): Promise<RemediationResult> =>
+    unwrap(await api.delete(`/remediate/${encodeURIComponent(name)}`)),
 };
 
 export default api;

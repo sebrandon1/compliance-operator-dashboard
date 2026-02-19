@@ -279,6 +279,80 @@ func (h *Handlers) HandleApplyRemediation(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, result)
 }
 
+// BatchApplyRequest is the JSON body for batch remediation apply.
+type BatchApplyRequest struct {
+	Names []string `json:"names"`
+}
+
+// HandleBatchApplyRemediations applies multiple remediations in a single request.
+func (h *Handlers) HandleBatchApplyRemediations(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Not connected to Kubernetes cluster")
+		return
+	}
+
+	var req BatchApplyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if len(req.Names) == 0 {
+		writeError(w, http.StatusBadRequest, "At least one remediation name is required")
+		return
+	}
+
+	var results []compliance.RemediationResult
+	for _, name := range req.Names {
+		result, err := compliance.ApplyRemediation(r.Context(), h.k8sClient, h.namespace, name)
+		if err != nil {
+			res := compliance.RemediationResult{
+				Name:  name,
+				Error: err.Error(),
+			}
+			results = append(results, res)
+			h.hub.Broadcast(ws.Message{
+				Type:    ws.MessageTypeRemediationResult,
+				Payload: res,
+			})
+			continue
+		}
+		results = append(results, *result)
+		h.hub.Broadcast(ws.Message{
+			Type:    ws.MessageTypeRemediationResult,
+			Payload: *result,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, results)
+}
+
+// HandleRemoveRemediation removes a previously applied remediation object.
+func (h *Handlers) HandleRemoveRemediation(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Not connected to Kubernetes cluster")
+		return
+	}
+
+	name := r.PathValue("name")
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "Remediation name is required")
+		return
+	}
+
+	result, err := compliance.RemoveRemediation(r.Context(), h.k8sClient, h.namespace, name)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.hub.Broadcast(ws.Message{
+		Type:    ws.MessageTypeRemediationResult,
+		Payload: result,
+	})
+
+	writeJSON(w, http.StatusOK, result)
+}
+
 // HandleGetRemediation returns detail for a single remediation including its YAML.
 func (h *Handlers) HandleGetRemediation(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")

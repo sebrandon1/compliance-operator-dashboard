@@ -220,9 +220,13 @@ func ListRemediations(ctx context.Context, client *k8s.Client, namespace string)
 		// Look up severity
 		severity := severityMap[name]
 
-		// Check if applied
-		apply, _, _ := unstructured.NestedString(rem.Object, "spec", "apply")
-		applied := apply == "true"
+		// Check if applied (handle both bool and string representations)
+		applied := false
+		if applyBool, found, err := unstructured.NestedBool(rem.Object, "spec", "apply"); err == nil && found {
+			applied = applyBool
+		} else if applyStr, found, err := unstructured.NestedString(rem.Object, "spec", "apply"); err == nil && found {
+			applied = applyStr == "true"
+		}
 
 		// Determine if reboot is needed (MachineConfig changes reboot nodes)
 		rebootNeeded := kind == "MachineConfig"
