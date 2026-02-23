@@ -226,7 +226,7 @@ export default function RemediationPanel({ remediations, onApplied }: Remediatio
                   <div className="flex items-center flex-1 min-w-0 mr-4">
                     {!rem.applied && (
                       <button
-                        className="mr-3 flex-shrink-0 text-gray-400 hover:text-primary-600"
+                        className="mr-3 shrink-0 text-gray-400 hover:text-primary-600"
                         onClick={() => toggleSelect(rem.name)}
                         disabled={batchApplying}
                       >
