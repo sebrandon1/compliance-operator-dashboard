@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -461,6 +462,30 @@ func (h *Handlers) HandleUninstallOperator(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusAccepted, map[string]string{
 		"message": "Uninstallation started. Follow progress via WebSocket.",
 	})
+}
+
+// HandleHealthz is a liveness probe that always returns 200 OK.
+func (h *Handlers) HandleHealthz(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// HandleReadyz is a readiness probe that checks Kubernetes connectivity.
+func (h *Handlers) HandleReadyz(w http.ResponseWriter, r *http.Request) {
+	if h.k8sClient == nil {
+		writeError(w, http.StatusServiceUnavailable, "Kubernetes client not initialized")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	_, err := h.k8sClient.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{Limit: 1})
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Sprintf("Kubernetes not reachable: %v", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 // HandleWebSocket upgrades to WebSocket connection.
