@@ -114,7 +114,7 @@ export default function ResultsTable({ results, initialSeverity = '', remediatio
     return items;
   }, [results, search, severityFilter, statusFilter, scanFilter, sortField, sortDirection]);
 
-  const SortIcon = ({ field }: { field: SortField }) => {
+  const renderSortIcon = (field: SortField) => {
     if (sortField !== field) return null;
     return sortDirection === 'asc'
       ? <ChevronUp className="h-4 w-4 inline" />
@@ -184,25 +184,25 @@ export default function ResultsTable({ results, initialSeverity = '', remediatio
                 className="text-left px-4 py-3 font-medium text-gray-700 cursor-pointer hover:text-gray-900"
                 onClick={() => handleSort('name')}
               >
-                Check Name <SortIcon field="name" />
+                Check Name {renderSortIcon("name")}
               </th>
               <th
                 className="text-left px-4 py-3 font-medium text-gray-700 cursor-pointer hover:text-gray-900 w-28"
                 onClick={() => handleSort('scan')}
               >
-                Scan <SortIcon field="scan" />
+                Scan {renderSortIcon("scan")}
               </th>
               <th
                 className="text-left px-4 py-3 font-medium text-gray-700 cursor-pointer hover:text-gray-900 w-28"
                 onClick={() => handleSort('severity')}
               >
-                Severity <SortIcon field="severity" />
+                Severity {renderSortIcon("severity")}
               </th>
               <th
                 className="text-left px-4 py-3 font-medium text-gray-700 cursor-pointer hover:text-gray-900 w-28"
                 onClick={() => handleSort('status')}
               >
-                Status <SortIcon field="status" />
+                Status {renderSortIcon("status")}
               </th>
               <th className="text-left px-4 py-3 font-medium text-gray-700">
                 Description
