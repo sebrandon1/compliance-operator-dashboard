@@ -4,7 +4,7 @@ import type { WSMessage } from '../types/api';
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttempts = useRef(0);
   const { setWSConnected, handleWSMessage } = useDashboardStore();
 
