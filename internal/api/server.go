@@ -3,7 +3,7 @@ package api
 import (
 	"embed"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -77,7 +77,7 @@ func (s *Server) Handler() http.Handler {
 func spaHandler() http.Handler {
 	distFS, err := fs.Sub(frontendFS, "frontend_dist")
 	if err != nil {
-		log.Printf("Warning: embedded frontend not available: %v", err)
+		slog.Warn("embedded frontend not available", "error", err)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = w.Write([]byte(`<!DOCTYPE html><html><body>

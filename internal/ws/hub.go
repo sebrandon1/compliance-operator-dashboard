@@ -3,7 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"sync"
 )
 
@@ -43,7 +43,7 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			log.Printf("WebSocket client connected (total: %d)", h.ClientCount())
+			slog.Debug("websocket client connected", "total", h.ClientCount())
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -52,12 +52,12 @@ func (h *Hub) Run(ctx context.Context) {
 				delete(h.clients, client)
 			}
 			h.mu.Unlock()
-			log.Printf("WebSocket client disconnected (total: %d)", h.ClientCount())
+			slog.Debug("websocket client disconnected", "total", h.ClientCount())
 
 		case msg := <-h.broadcast:
 			data, err := json.Marshal(msg)
 			if err != nil {
-				log.Printf("Error marshaling broadcast message: %v", err)
+				slog.Error("error marshaling broadcast message", "error", err)
 				continue
 			}
 			h.mu.RLock()
@@ -91,7 +91,7 @@ func (h *Hub) Broadcast(msg Message) {
 	select {
 	case h.broadcast <- msg:
 	default:
-		log.Printf("Broadcast channel full, dropping message of type %s", msg.Type)
+		slog.Warn("broadcast channel full, dropping message", "type", msg.Type)
 	}
 }
 

@@ -2,7 +2,7 @@ package ws
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -75,10 +75,10 @@ func (w *Watcher) watchResource(ctx context.Context, gvr schema.GroupVersionReso
 			// If the CRD doesn't exist, back off much longer (operator not installed)
 			if strings.Contains(err.Error(), "the server could not find the requested resource") ||
 				strings.Contains(err.Error(), "no matches for kind") {
-				log.Printf("CRD not found for %s, operator likely not installed (retrying in 60s)", resourceType)
+				slog.Debug("CRD not found, operator likely not installed", "resource", resourceType, "retry_seconds", 60)
 				backoff = 60 * time.Second
 			} else {
-				log.Printf("Watch error for %s: %v (retrying in %v)", resourceType, err, backoff)
+				slog.Warn("watch error", "resource", resourceType, "error", err, "retry", backoff)
 			}
 			select {
 			case <-ctx.Done():

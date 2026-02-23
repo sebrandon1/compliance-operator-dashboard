@@ -3,7 +3,7 @@ package compliance
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -449,13 +449,13 @@ func DeleteScan(ctx context.Context, client *k8s.Client, namespace, suiteName st
 	_, err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Patch(ctx, suiteName, types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		log.Printf("Warning: could not remove finalizers from ScanSettingBinding %s: %v", suiteName, err)
+		slog.Warn("could not remove finalizers from ScanSettingBinding", "name", suiteName, "error", err)
 	}
 
 	err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Delete(ctx, suiteName, metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		log.Printf("Warning: could not delete ScanSettingBinding %s: %v", suiteName, err)
+		slog.Warn("could not delete ScanSettingBinding", "name", suiteName, "error", err)
 	}
 
 	return nil

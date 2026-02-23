@@ -38,6 +38,11 @@ func init() {
 
 	defaultCORef := os.Getenv("COMPLIANCE_OPERATOR_REF")
 
+	defaultLogFormat := os.Getenv("LOG_FORMAT")
+	if defaultLogFormat == "" {
+		defaultLogFormat = "text"
+	}
+
 	rootCmd.PersistentFlags().StringVar(&cfg.KubeConfig, "kubeconfig", defaultKubeconfig,
 		"Path to kubeconfig file (env: KUBECONFIG)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Namespace, "namespace", defaultNamespace,
@@ -46,4 +51,6 @@ func init() {
 		"HTTP server port")
 	rootCmd.PersistentFlags().StringVar(&cfg.ComplianceOpRef, "co-ref", defaultCORef,
 		"Compliance Operator version reference (env: COMPLIANCE_OPERATOR_REF, default: latest from GitHub)")
+	rootCmd.PersistentFlags().StringVar(&cfg.LogFormat, "log-format", defaultLogFormat,
+		"Log output format: text or json (env: LOG_FORMAT)")
 }
