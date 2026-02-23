@@ -62,11 +62,11 @@ func GetComplianceResults(ctx context.Context, client *k8s.Client, namespace str
 	}
 
 	var (
-		highFail, mediumFail, lowFail       []CheckResult
-		highPass, mediumPass, lowPass       []CheckResult
-		manualChecks                        []CheckResult
-		totalPassing, totalFailing          int
-		totalManual, totalSkipped           int
+		highFail, mediumFail, lowFail []CheckResult
+		highPass, mediumPass, lowPass []CheckResult
+		manualChecks                  []CheckResult
+		totalPassing, totalFailing    int
+		totalManual, totalSkipped     int
 	)
 
 	for _, item := range results.Items {

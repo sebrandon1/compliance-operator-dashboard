@@ -1,4 +1,7 @@
-.PHONY: all build test lint run clean frontend-install frontend-dev frontend-build embed-frontend help
+.PHONY: all build test lint run clean frontend-install frontend-dev frontend-build embed-frontend docker-build help
+
+IMAGE_NAME ?= ghcr.io/sebrandon1/compliance-operator-dashboard
+IMAGE_TAG ?= latest
 
 GOCMD=go
 GOBUILD=$(GOCMD) build
@@ -49,6 +52,11 @@ embed-frontend:
 	@echo "Copying frontend dist for embedding..."
 	rm -rf $(EMBED_DIR)
 	cp -r frontend/dist $(EMBED_DIR)
+
+## docker-build: Build container image
+docker-build:
+	@echo "Building container image $(IMAGE_NAME):$(IMAGE_TAG)..."
+	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 
 ## clean: Remove build artifacts
 clean:

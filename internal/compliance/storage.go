@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	hostpathCSIDriverName      = "kubevirt.io.hostpath-provisioner"
-	defaultSCAnnotation        = "storageclass.kubernetes.io/is-default-class"
-	crcCSIHostpathProvisioner  = "crc-csi-hostpath-provisioner"
-	localPathProvisioner       = "rancher.io/local-path"
-	hostpathProvisionerName    = "kubevirt.io.hostpath-provisioner"
+	hostpathCSIDriverName     = "kubevirt.io.hostpath-provisioner"
+	defaultSCAnnotation       = "storageclass.kubernetes.io/is-default-class"
+	crcCSIHostpathProvisioner = "crc-csi-hostpath-provisioner"
+	localPathProvisioner      = "rancher.io/local-path"
+	hostpathProvisionerName   = "kubevirt.io.hostpath-provisioner"
 )
 
 // DetectStorage checks the cluster for storage provisioners and default StorageClass.

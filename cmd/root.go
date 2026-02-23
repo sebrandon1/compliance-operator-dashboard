@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -46,5 +45,5 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&cfg.Port, "port", 8080,
 		"HTTP server port")
 	rootCmd.PersistentFlags().StringVar(&cfg.ComplianceOpRef, "co-ref", defaultCORef,
-		fmt.Sprintf("Compliance Operator version reference (env: COMPLIANCE_OPERATOR_REF, default: latest from GitHub)"))
+		"Compliance Operator version reference (env: COMPLIANCE_OPERATOR_REF, default: latest from GitHub)")
 }

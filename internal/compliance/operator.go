@@ -525,9 +525,9 @@ func installRedHatOperator(ctx context.Context, client *k8s.Client, namespace st
 			"spec": map[string]interface{}{
 				"channel":             "stable",
 				"installPlanApproval": "Automatic",
-				"name":               operatorName,
-				"source":             "redhat-operators",
-				"sourceNamespace":    marketplaceNS,
+				"name":                operatorName,
+				"source":              "redhat-operators",
+				"sourceNamespace":     marketplaceNS,
 			},
 		},
 	}
@@ -610,9 +610,9 @@ func installCommunityOperator(ctx context.Context, client *k8s.Client, namespace
 			"spec": map[string]interface{}{
 				"channel":             "alpha",
 				"installPlanApproval": "Automatic",
-				"name":               operatorName,
-				"source":             operatorName,
-				"sourceNamespace":    marketplaceNS,
+				"name":                operatorName,
+				"source":              operatorName,
+				"sourceNamespace":     marketplaceNS,
 			},
 		},
 	}
