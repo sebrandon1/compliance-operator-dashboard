@@ -2,6 +2,7 @@ import { useMemo, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FileSearch } from 'lucide-react';
 import ResultsTable from '../components/ResultsTable';
+import CheckDetailDrawer from '../components/CheckDetailDrawer';
 import { useCompliance } from '../hooks/useCompliance';
 import { remediationApi } from '../lib/api';
 import type { CheckResult } from '../types/api';
@@ -11,6 +12,7 @@ export default function ResultsPage() {
   const [searchParams] = useSearchParams();
   const initialSeverity = searchParams.get('severity') || '';
   const [remediationNames, setRemediationNames] = useState<Set<string>>(new Set());
+  const [drawerCheckName, setDrawerCheckName] = useState<string | null>(null);
 
   // Fetch remediation names so we can show "Fix" links on FAIL items
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function ResultsPage() {
           results={allResults}
           initialSeverity={initialSeverity}
           remediationNames={remediationNames}
+          onRowClick={(name) => setDrawerCheckName(name)}
         />
       ) : (
         <div className="card p-12 text-center">
@@ -70,6 +73,10 @@ export default function ResultsPage() {
           <p className="text-sm text-gray-400 mt-1">Run a scan from the Dashboard page to generate results.</p>
         </div>
       )}
+      <CheckDetailDrawer
+        checkName={drawerCheckName}
+        onClose={() => setDrawerCheckName(null)}
+      />
     </div>
   );
 }

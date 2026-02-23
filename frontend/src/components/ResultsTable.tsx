@@ -7,6 +7,7 @@ interface ResultsTableProps {
   results: CheckResult[];
   initialSeverity?: string;
   remediationNames?: Set<string>;
+  onRowClick?: (name: string) => void;
 }
 
 type SortField = 'name' | 'severity' | 'status' | 'scan';
@@ -43,7 +44,7 @@ function findRemediation(checkName: string, remediationNames?: Set<string>): str
   return null;
 }
 
-export default function ResultsTable({ results, initialSeverity = '', remediationNames }: ResultsTableProps) {
+export default function ResultsTable({ results, initialSeverity = '', remediationNames, onRowClick }: ResultsTableProps) {
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>(initialSeverity);
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -213,11 +214,12 @@ export default function ResultsTable({ results, initialSeverity = '', remediatio
             {filtered.map((result) => {
               const remName = result.status === 'FAIL' ? findRemediation(result.name, remediationNames) : null;
               return (
-                <tr key={result.name} className="hover:bg-gray-50">
+                <tr key={result.name} className="hover:bg-gray-50 cursor-pointer" onClick={() => onRowClick?.(result.name)}>
                   <td className="px-4 py-3">
                     <Link
                       to={`/results/${encodeURIComponent(result.name)}`}
                       className="font-mono text-xs text-primary-600 hover:text-primary-800 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {result.name}
                     </Link>
@@ -244,6 +246,7 @@ export default function ResultsTable({ results, initialSeverity = '', remediatio
                           to={`/remediation/${encodeURIComponent(remName)}`}
                           className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 hover:underline"
                           title="View remediation"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Wrench className="h-3 w-3" />
                           Fix

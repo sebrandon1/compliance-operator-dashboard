@@ -1,4 +1,4 @@
-.PHONY: all build test lint run clean frontend-install frontend-dev frontend-build embed-frontend docker-build help
+.PHONY: all build test lint run clean frontend-install frontend-dev frontend-build frontend-lint frontend-test embed-frontend docker-build help
 
 IMAGE_NAME ?= ghcr.io/sebrandon1/compliance-operator-dashboard
 IMAGE_TAG ?= latest
@@ -46,6 +46,16 @@ frontend-dev:
 frontend-build: frontend-install
 	@echo "Building frontend..."
 	cd frontend && npm run build
+
+## frontend-lint: Run frontend ESLint
+frontend-lint: frontend-install
+	@echo "Running frontend linter..."
+	cd frontend && npm run lint
+
+## frontend-test: Run frontend unit tests
+frontend-test: frontend-install
+	@echo "Running frontend tests..."
+	cd frontend && npm test
 
 ## embed-frontend: Copy frontend dist to embed location
 embed-frontend:
