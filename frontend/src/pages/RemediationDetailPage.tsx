@@ -21,11 +21,12 @@ export default function RemediationDetailPage() {
 
   useEffect(() => {
     if (!name) return;
-    setLoading(true);
+    let cancelled = false;
     remediationApi.getDetail(name)
-      .then(setDetail)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to fetch detail'))
-      .finally(() => setLoading(false));
+      .then(data => { if (!cancelled) setDetail(data); })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch detail'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [name]);
 
   // Read applied timestamp from localStorage

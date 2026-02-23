@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CheckCircle, XCircle, Loader2, Download } from 'lucide-react';
 import { operatorApi } from '../lib/api';
 import { useDashboardStore } from '../lib/store';
 import type { InstallProgress } from '../types/api';
 
 export default function OperatorInstallWizard() {
-  const [installing, setInstalling] = useState(false);
+  const [installStarted, setInstallStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { installProgress, clearInstallProgress } = useDashboardStore();
 
   const handleInstall = async () => {
-    setInstalling(true);
+    setInstallStarted(true);
     setError(null);
     clearInstallProgress();
 
@@ -18,20 +18,14 @@ export default function OperatorInstallWizard() {
       await operatorApi.install();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start installation');
-      setInstalling(false);
+      setInstallStarted(false);
     }
   };
 
-  // Check if installation is complete
+  // Derive installation status from progress
   const isComplete = installProgress.some(p => p.done && !p.error);
   const hasFailed = installProgress.some(p => p.done && !!p.error);
-
-  // Clear installing state when WebSocket signals completion or failure
-  useEffect(() => {
-    if (isComplete || hasFailed) {
-      setInstalling(false);
-    }
-  }, [isComplete, hasFailed]);
+  const installing = installStarted && !isComplete && !hasFailed;
 
   const getStepIcon = (step: InstallProgress) => {
     if (step.error) return <XCircle className="h-5 w-5 text-red-500" />;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Settings, CheckCircle, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import OperatorInstallWizard from '../components/OperatorInstallWizard';
 import { useDashboardStore } from '../lib/store';
@@ -7,35 +7,36 @@ import type { OperatorStatus } from '../types/api';
 
 export default function SettingsPage() {
   const { clusterStatus, updateCounter, uninstallProgress, clearUninstallProgress } = useDashboardStore();
-  const [operatorStatus, setOperatorStatus] = useState<OperatorStatus | null>(null);
+  const [fetchedOperatorStatus, setFetchedOperatorStatus] = useState<OperatorStatus | null>(null);
   const [confirmUninstall, setConfirmUninstall] = useState(false);
-  const [uninstalling, setUninstalling] = useState(false);
+  const [uninstallStarted, setUninstallStarted] = useState(false);
 
   useEffect(() => {
     if (clusterStatus?.connected) {
-      operatorApi.getStatus().then(setOperatorStatus).catch(console.error);
+      operatorApi.getStatus().then(setFetchedOperatorStatus).catch(console.error);
     }
   }, [clusterStatus?.connected, updateCounter]);
 
-  // When uninstall completes, update local state
-  useEffect(() => {
-    const last = uninstallProgress[uninstallProgress.length - 1];
-    if (last?.done) {
-      setUninstalling(false);
-      if (!last.error) {
-        setOperatorStatus({ installed: false });
-      }
-    }
-  }, [uninstallProgress]);
+  // Derive uninstall status from progress
+  const lastUninstallStep = uninstallProgress[uninstallProgress.length - 1];
+  const uninstallDone = lastUninstallStep?.done ?? false;
+  const uninstalling = uninstallStarted && !uninstallDone;
+  const uninstallSucceeded = uninstallDone && !lastUninstallStep?.error;
+
+  // Derive effective operator status: override with uninstall result
+  const operatorStatus = useMemo<OperatorStatus | null>(() => {
+    if (uninstallSucceeded) return { installed: false };
+    return fetchedOperatorStatus;
+  }, [fetchedOperatorStatus, uninstallSucceeded]);
 
   const handleUninstall = async () => {
-    setUninstalling(true);
+    setUninstallStarted(true);
     setConfirmUninstall(false);
     clearUninstallProgress();
     try {
       await operatorApi.uninstall();
     } catch (err) {
-      setUninstalling(false);
+      setUninstallStarted(false);
       console.error('Uninstall request failed:', err);
     }
   };
