@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -29,14 +29,23 @@ func init() {
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
+	// Initialize structured logging
+	var handler slog.Handler
+	if cfg.LogFormat == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	}
+	slog.SetDefault(slog.New(handler))
+
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
 	// Initialize Kubernetes client
 	k8sClient, err := k8s.NewClient(cfg.KubeConfig)
 	if err != nil {
-		log.Printf("Warning: could not connect to Kubernetes cluster: %v", err)
-		log.Printf("Dashboard will start but cluster features will be unavailable")
+		slog.Warn("could not connect to Kubernetes cluster", "error", err)
+		slog.Info("dashboard will start but cluster features will be unavailable")
 	}
 
 	// Initialize compliance service
@@ -68,16 +77,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		<-sigCh
-		log.Println("Shutting down server...")
+		slog.Info("shutting down server")
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("Server shutdown error: %v", err)
+			slog.Error("server shutdown error", "error", err)
 		}
 		cancel()
 	}()
 
-	log.Printf("Starting Compliance Operator Dashboard on http://localhost:%d", cfg.Port)
+	slog.Info("starting compliance operator dashboard", "port", cfg.Port)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server error: %w", err)
 	}

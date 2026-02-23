@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -217,7 +217,7 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 		var err error
 		coRef, err = GetLatestRelease(ctx)
 		if err != nil {
-			log.Printf("Could not fetch latest release: %v, falling back to master", err)
+			slog.Warn("could not fetch latest release, falling back to master", "error", err)
 			coRef = "master"
 		}
 	}
@@ -256,7 +256,7 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 	sendProgress("source", "Checking for Red Hat certified operator...")
 	useRedHat, err := CheckRedHatOperator(ctx, client)
 	if err != nil {
-		log.Printf("Red Hat operator check error: %v, falling back to community", err)
+		slog.Warn("Red Hat operator check error, falling back to community", "error", err)
 	}
 
 	// Step 6: Install operator
@@ -286,21 +286,21 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 	// Step 8: Apply supplemental RBAC
 	sendProgress("rbac", "Applying supplemental RBAC for Job creation...")
 	if err := applySupplementalRBAC(ctx, client, namespace); err != nil {
-		log.Printf("Warning: supplemental RBAC failed: %v", err)
+		slog.Warn("supplemental RBAC failed", "error", err)
 	}
 	sendProgress("rbac", "Supplemental RBAC applied")
 
 	// Step 9: Wait for pods
 	sendProgress("pods", "Waiting for operator pods to be ready...")
 	if err := waitForPodsReady(ctx, client, namespace); err != nil {
-		log.Printf("Warning: some pods may not be ready: %v", err)
+		slog.Warn("some pods may not be ready", "error", err)
 	}
 	sendProgress("pods", "Operator pods are ready")
 
 	// Step 10: Wait for ProfileBundles
 	sendProgress("bundles", "Waiting for ProfileBundles to become VALID...")
 	if err := waitForProfileBundles(ctx, client, namespace); err != nil {
-		log.Printf("Warning: ProfileBundles may not be valid: %v", err)
+		slog.Warn("ProfileBundles may not be valid", "error", err)
 	}
 
 	sendDone("complete", "Compliance Operator installed successfully")
@@ -348,7 +348,7 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 		items, err := client.Dynamic.Resource(crd.gvr).Namespace(namespace).
 			List(ctx, metav1.ListOptions{})
 		if err != nil {
-			log.Printf("Warning: listing %s: %v", crd.name, err)
+			slog.Warn("error listing compliance resource", "resource", crd.name, "error", err)
 			continue
 		}
 		for _, item := range items.Items {
@@ -367,7 +367,7 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 	err := client.Dynamic.Resource(subscriptionGVR).Namespace(namespace).
 		Delete(ctx, subscriptionName, metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		log.Printf("Warning: deleting Subscription: %v", err)
+		slog.Warn("error deleting Subscription", "error", err)
 	}
 	sendProgress("subscription", "Subscription deleted")
 
@@ -388,7 +388,7 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 	err = client.Dynamic.Resource(operatorGroupGVR).Namespace(namespace).
 		Delete(ctx, operatorName, metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		log.Printf("Warning: deleting OperatorGroup: %v", err)
+		slog.Warn("error deleting OperatorGroup", "error", err)
 	}
 	sendProgress("operatorgroup", "OperatorGroup deleted")
 
@@ -397,7 +397,7 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 	err = client.Dynamic.Resource(catalogSourceGVR).Namespace(marketplaceNS).
 		Delete(ctx, operatorName, metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		log.Printf("Warning: deleting CatalogSource: %v", err)
+		slog.Warn("error deleting CatalogSource", "error", err)
 	}
 	sendProgress("catalogsource", "CatalogSource deleted")
 

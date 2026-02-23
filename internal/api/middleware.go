@@ -3,7 +3,7 @@ package api
 import (
 	"bufio"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -31,7 +31,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		wrapped := &statusWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(wrapped, r)
-		log.Printf("%s %s %d %v", r.Method, r.URL.Path, wrapped.statusCode, time.Since(start))
+		slog.Debug("http request", "method", r.Method, "path", r.URL.Path, "status", wrapped.statusCode, "duration", time.Since(start))
 	})
 }
 
@@ -40,7 +40,7 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("Panic recovered: %v", err)
+				slog.Error("panic recovered", "error", err, "method", r.Method, "path", r.URL.Path)
 				writeError(w, http.StatusInternalServerError, "Internal server error")
 			}
 		}()

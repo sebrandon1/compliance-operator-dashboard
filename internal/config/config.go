@@ -6,4 +6,5 @@ type Config struct {
 	Namespace       string
 	Port            int
 	ComplianceOpRef string
+	LogFormat       string
 }
