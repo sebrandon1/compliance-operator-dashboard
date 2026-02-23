@@ -40,6 +40,10 @@ func NewServer(cfg config.Config, svc *compliance.Service, hub *ws.Hub) *Server 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
+	// Health/readiness probes
+	mux.HandleFunc("GET /healthz", s.handlers.HandleHealthz)
+	mux.HandleFunc("GET /readyz", s.handlers.HandleReadyz)
+
 	// API routes (Go 1.22+ method routing)
 	mux.HandleFunc("GET /api/cluster/status", s.handlers.HandleClusterStatus)
 	mux.HandleFunc("POST /api/operator/install", s.handlers.HandleOperatorInstall)
