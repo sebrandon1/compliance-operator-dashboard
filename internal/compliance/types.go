@@ -158,12 +158,12 @@ type ScanStatus struct {
 
 // SuiteStatus represents the status of a compliance suite.
 type SuiteStatus struct {
-	Name        string       `json:"name"`
-	Phase       string       `json:"phase"`
-	Scans       []ScanStatus `json:"scans,omitempty"`
-	Result      string       `json:"result,omitempty"`
-	CreatedAt   string       `json:"created_at,omitempty"`
-	Conditions  []Condition  `json:"conditions,omitempty"`
+	Name       string       `json:"name"`
+	Phase      string       `json:"phase"`
+	Scans      []ScanStatus `json:"scans,omitempty"`
+	Result     string       `json:"result,omitempty"`
+	CreatedAt  string       `json:"created_at,omitempty"`
+	Conditions []Condition  `json:"conditions,omitempty"`
 }
 
 // Condition represents a K8s-style status condition.

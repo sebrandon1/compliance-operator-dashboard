@@ -3,6 +3,7 @@ package compliance
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -231,7 +232,7 @@ func createOrUpdateSSB(ctx context.Context, client *k8s.Client, namespace, name 
 				"name":      name,
 				"namespace": namespace,
 			},
-			"profiles":   profiles,
+			"profiles":    profiles,
 			"settingsRef": settingsRef,
 		},
 	}
@@ -444,17 +445,17 @@ func DeleteScan(ctx context.Context, client *k8s.Client, namespace, suiteName st
 		return fmt.Errorf("deleting ComplianceSuite %s: %w", suiteName, err)
 	}
 
-	// Remove finalizers and delete the matching ScanSettingBinding
+	// Remove finalizers and delete the matching ScanSettingBinding (non-fatal if not found or name mismatch)
 	_, err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Patch(ctx, suiteName, types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		// Non-fatal: the binding name may not match the suite name
+		log.Printf("Warning: could not remove finalizers from ScanSettingBinding %s: %v", suiteName, err)
 	}
 
 	err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Delete(ctx, suiteName, metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		// Non-fatal: binding may have a different name
+		log.Printf("Warning: could not delete ScanSettingBinding %s: %v", suiteName, err)
 	}
 
 	return nil

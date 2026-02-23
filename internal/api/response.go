@@ -15,7 +15,7 @@ type APIResponse struct {
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(APIResponse{
+	_ = json.NewEncoder(w).Encode(APIResponse{
 		Success: status >= 200 && status < 300,
 		Data:    data,
 	})
@@ -24,7 +24,7 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(APIResponse{
+	_ = json.NewEncoder(w).Encode(APIResponse{
 		Success: false,
 		Error:   message,
 	})

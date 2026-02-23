@@ -80,7 +80,7 @@ func spaHandler() http.Handler {
 		log.Printf("Warning: embedded frontend not available: %v", err)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(`<!DOCTYPE html><html><body>
+			_, _ = w.Write([]byte(`<!DOCTYPE html><html><body>
 				<h1>Compliance Operator Dashboard</h1>
 				<p>Frontend not built. Run <code>make frontend-build</code> first.</p>
 			</body></html>`))

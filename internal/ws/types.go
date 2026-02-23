@@ -4,13 +4,13 @@ package ws
 type MessageType string
 
 const (
-	MessageTypeClusterStatus   MessageType = "cluster_status"
-	MessageTypeOperatorStatus  MessageType = "operator_status"
-	MessageTypeInstallProgress MessageType = "install_progress"
-	MessageTypeScanStatus      MessageType = "scan_status"
-	MessageTypeCheckResult     MessageType = "check_result"
-	MessageTypeRemediation     MessageType = "remediation"
-	MessageTypeRemediationResult  MessageType = "remediation_result"
+	MessageTypeClusterStatus     MessageType = "cluster_status"
+	MessageTypeOperatorStatus    MessageType = "operator_status"
+	MessageTypeInstallProgress   MessageType = "install_progress"
+	MessageTypeScanStatus        MessageType = "scan_status"
+	MessageTypeCheckResult       MessageType = "check_result"
+	MessageTypeRemediation       MessageType = "remediation"
+	MessageTypeRemediationResult MessageType = "remediation_result"
 	MessageTypeUninstallProgress MessageType = "uninstall_progress"
 	MessageTypeError             MessageType = "error"
 )
