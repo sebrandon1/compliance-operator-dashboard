@@ -5,27 +5,79 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - dependencies
       - go
+    groups:
+      k8s:
+        patterns: ["k8s.io/*", "sigs.k8s.io/*"]
+        update-types: ["major", "minor", "patch"]
+      other-go-modules:
+        patterns: ["*"]
+        exclude-patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+        update-types: ["major", "minor", "patch"]
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - dependencies
       - javascript
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["major", "minor", "patch"]
+      lint:
+        patterns: ["eslint", "eslint-*", "@eslint/*", "typescript-eslint", "globals"]
+        update-types: ["major", "minor", "patch"]
+      build:
+        patterns: ["vite", "@vitejs/*", "typescript", "postcss", "autoprefixer", "tailwindcss"]
+        update-types: ["major", "minor", "patch"]
+      other-npm:
+        patterns: ["*"]
+        exclude-patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "globals"
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "postcss"
+          - "autoprefixer"
+          - "tailwindcss"
+        update-types: ["major", "minor", "patch"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - ci
+    groups:
+      actions:
+        patterns: ["actions/*"]
+        update-types: ["major", "minor", "patch"]
+      docker:
+        patterns: ["docker/*"]
+        update-types: ["major", "minor", "patch"]
+      other-actions:
+        patterns: ["*"]
+        exclude-patterns:
+          - "actions/*"
+          - "docker/*"
+        update-types: ["major", "minor", "patch"]
