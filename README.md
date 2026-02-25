@@ -12,6 +12,10 @@ This is the companion project to [compliance-scripts](https://github.com/sebrand
 - **Real-Time Updates** — WebSocket-driven live updates from Kubernetes watch events. Scan status, check results, and remediation outcomes stream to the browser automatically.
 - **Single Binary** — Go backend with embedded React SPA via `go:embed`. No separate frontend server needed.
 
+## How-to-Use Guide
+
+New to the dashboard? See the **[step-by-step guide with screenshots](docs/guide/getting-started.md)** covering the full workflow: installing the operator, running scans, viewing results, and applying remediations.
+
 ## Quick Start
 
 ```bash
