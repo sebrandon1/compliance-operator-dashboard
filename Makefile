@@ -1,4 +1,4 @@
-.PHONY: all build test lint run clean frontend-install frontend-dev frontend-build frontend-lint frontend-test embed-frontend docker-build help
+.PHONY: all build test lint run stop clean frontend-install frontend-dev frontend-build frontend-lint frontend-test embed-frontend docker-build help
 
 IMAGE_NAME ?= ghcr.io/sebrandon1/compliance-operator-dashboard
 IMAGE_TAG ?= latest
@@ -31,6 +31,11 @@ lint:
 ## run: Build and run the dashboard
 run: build
 	$(BUILD_DIR)/$(BINARY) serve
+
+## stop: Kill any running dashboard server processes
+stop:
+	@echo "Stopping dashboard processes..."
+	@pkill -f '$(BUILD_DIR)/$(BINARY)' 2>/dev/null && echo "Stopped." || echo "No running processes found."
 
 ## frontend-install: Install frontend dependencies
 frontend-install:
