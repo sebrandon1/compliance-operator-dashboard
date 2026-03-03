@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -63,8 +64,28 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// Create and start HTTP server
 	srv := api.NewServer(cfg, complianceSvc, hub)
+
+	// Find an available port, starting with the configured one
+	const maxPortAttempts = 10
+	var listener net.Listener
+	port := cfg.Port
+	for i := range maxPortAttempts {
+		addr := fmt.Sprintf(":%d", port+i)
+		listener, err = net.Listen("tcp", addr)
+		if err == nil {
+			if i > 0 {
+				slog.Warn("configured port in use, using next available", "configured", cfg.Port, "actual", port+i)
+			}
+			port += i
+			break
+		}
+		slog.Warn("port unavailable, trying next", "port", port+i, "error", err)
+	}
+	if listener == nil {
+		return fmt.Errorf("could not find available port after %d attempts starting from %d", maxPortAttempts, cfg.Port)
+	}
+
 	httpServer := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      srv.Handler(),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 60 * time.Second,
@@ -86,8 +107,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	slog.Info("starting compliance operator dashboard", "port", cfg.Port)
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	slog.Info("starting compliance operator dashboard", "port", port)
+	if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server error: %w", err)
 	}
 
