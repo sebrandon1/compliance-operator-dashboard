@@ -3,13 +3,12 @@ import { Link } from 'react-router-dom';
 import { Shield, Clock, Search } from 'lucide-react';
 import RemediationPanel from '../components/RemediationPanel';
 import { remediationApi } from '../lib/api';
+import { severityOrder } from '../lib/badges';
 import { useDashboardStore } from '../lib/store';
 import type { RemediationInfo, Severity } from '../types/api';
 
 type SortField = 'severity' | 'name' | 'reboot';
 type SortDirection = 'asc' | 'desc';
-
-const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 export default function RemediationPage() {
   const [remediations, setRemediations] = useState<RemediationInfo[]>([]);

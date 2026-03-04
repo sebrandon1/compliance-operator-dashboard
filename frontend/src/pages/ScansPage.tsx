@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Radar, Clock, CheckCircle2, XCircle, AlertTriangle, Plus, Play, Zap, RefreshCw, Trash2 } from 'lucide-react';
 import { scanApi } from '../lib/api';
 import { useDashboardStore } from '../lib/store';
@@ -272,15 +272,19 @@ export default function ScansPage() {
   };
 
   // Determine which profiles already have a scan running or done
-  const recommendedProfileNames = new Set(['ocp4-cis', 'ocp4-moderate', 'ocp4-pci-dss', 'rhcos4-moderate']);
+  const recommendedProfileNames = useMemo(() =>
+    new Set(['ocp4-cis', 'ocp4-moderate', 'ocp4-pci-dss', 'rhcos4-moderate']),
+  []);
 
-  const scannedProfiles = new Set<string>();
-  for (const suite of suites) {
-    for (const scan of suite.scans || []) {
-      // The scan name is typically the profile name
-      scannedProfiles.add(scan.name);
+  const scannedProfiles = useMemo(() => {
+    const profiles = new Set<string>();
+    for (const suite of suites) {
+      for (const scan of suite.scans || []) {
+        profiles.add(scan.name);
+      }
     }
-  }
+    return profiles;
+  }, [suites]);
 
   return (
     <div className="space-y-6">

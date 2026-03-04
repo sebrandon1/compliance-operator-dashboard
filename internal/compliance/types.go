@@ -259,3 +259,27 @@ func DefaultPeriodicScanOptions(namespace string) PeriodicScanOptions {
 func ScanTimestamp() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
+
+// FinalizerRemovalPatch is a JSON merge patch that removes all finalizers from a resource.
+var FinalizerRemovalPatch = []byte(`{"metadata":{"finalizers":null}}`)
+
+// progressSender wraps an InstallProgress channel with convenience methods.
+type progressSender struct {
+	ch chan<- InstallProgress
+}
+
+func newProgressSender(ch chan<- InstallProgress) progressSender {
+	return progressSender{ch: ch}
+}
+
+func (ps progressSender) send(step, message string) {
+	ps.ch <- InstallProgress{Step: step, Message: message}
+}
+
+func (ps progressSender) sendError(step, message string) {
+	ps.ch <- InstallProgress{Step: step, Message: message, Error: message, Done: true}
+}
+
+func (ps progressSender) sendDone(step, message string) {
+	ps.ch <- InstallProgress{Step: step, Message: message, Done: true}
+}

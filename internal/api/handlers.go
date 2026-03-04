@@ -51,18 +51,22 @@ func (h *Handlers) HandleClusterStatus(w http.ResponseWriter, r *http.Request) {
 		status.ServerURL = h.k8sClient.RestConfig.Host
 	}
 
-	// Get node architecture info
-	armNodes, _, _ := compliance.CheckARMCompatibility(r.Context(), h.k8sClient, h.complianceRef)
-	status.ARMNodes = armNodes
-	if armNodes > 0 {
-		status.Architecture = "arm64"
-	} else {
-		status.Architecture = "amd64"
-	}
-
-	// Detect platform
+	// Get node info (single list call for architecture + platform detection)
 	nodes, err := h.k8sClient.Clientset.CoreV1().Nodes().List(r.Context(), metav1.ListOptions{})
 	if err == nil && len(nodes.Items) > 0 {
+		armNodes := 0
+		for _, node := range nodes.Items {
+			if node.Status.NodeInfo.Architecture == "arm64" {
+				armNodes++
+			}
+		}
+		status.ARMNodes = armNodes
+		if armNodes > 0 {
+			status.Architecture = "arm64"
+		} else {
+			status.Architecture = "amd64"
+		}
+
 		for key := range nodes.Items[0].Labels {
 			if strings.Contains(key, "openshift") {
 				status.Platform = "OpenShift"

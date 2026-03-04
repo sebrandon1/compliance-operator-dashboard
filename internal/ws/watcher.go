@@ -3,7 +3,6 @@ package ws
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 
+	"github.com/sebrandon1/compliance-operator-dashboard/internal/compliance"
 	"github.com/sebrandon1/compliance-operator-dashboard/internal/k8s"
 )
 
@@ -73,8 +73,7 @@ func (w *Watcher) watchResource(ctx context.Context, gvr schema.GroupVersionReso
 			Watch(ctx, metav1.ListOptions{})
 		if err != nil {
 			// If the CRD doesn't exist, back off much longer (operator not installed)
-			if strings.Contains(err.Error(), "the server could not find the requested resource") ||
-				strings.Contains(err.Error(), "no matches for kind") {
+			if compliance.IsCRDNotFound(err) {
 				slog.Debug("CRD not found, operator likely not installed", "resource", resourceType, "retry_seconds", 60)
 				backoff = 60 * time.Second
 			} else {

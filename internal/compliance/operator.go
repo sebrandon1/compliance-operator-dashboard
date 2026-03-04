@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -188,32 +189,24 @@ func CheckARMCompatibility(ctx context.Context, client *k8s.Client, coRef string
 func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, progress chan<- InstallProgress) {
 	defer close(progress)
 
-	sendProgress := func(step, message string) {
-		progress <- InstallProgress{Step: step, Message: message}
-	}
-	sendError := func(step, message string) {
-		progress <- InstallProgress{Step: step, Message: message, Error: message, Done: true}
-	}
-	sendDone := func(step, message string) {
-		progress <- InstallProgress{Step: step, Message: message, Done: true}
-	}
+	ps := newProgressSender(progress)
 
 	if client == nil {
-		sendError("init", "Kubernetes client is not connected")
+		ps.sendError("init", "Kubernetes client is not connected")
 		return
 	}
 
 	// Step 1: Check marketplace health
-	sendProgress("marketplace", "Checking marketplace health...")
+	ps.send("marketplace", "Checking marketplace health...")
 	if err := CheckMarketplaceHealth(ctx, client); err != nil {
-		sendError("marketplace", fmt.Sprintf("Marketplace health check failed: %v", err))
+		ps.sendError("marketplace", fmt.Sprintf("Marketplace health check failed: %v", err))
 		return
 	}
-	sendProgress("marketplace", "Marketplace is healthy")
+	ps.send("marketplace", "Marketplace is healthy")
 
 	// Step 2: Resolve version
 	if coRef == "" {
-		sendProgress("version", "Resolving latest release from GitHub...")
+		ps.send("version", "Resolving latest release from GitHub...")
 		var err error
 		coRef, err = GetLatestRelease(ctx)
 		if err != nil {
@@ -221,39 +214,39 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 			coRef = "master"
 		}
 	}
-	sendProgress("version", fmt.Sprintf("Using Compliance Operator ref: %s", coRef))
+	ps.send("version", fmt.Sprintf("Using Compliance Operator ref: %s", coRef))
 
 	// Step 3: Check ARM compatibility
-	sendProgress("arch", "Checking cluster architecture...")
+	ps.send("arch", "Checking cluster architecture...")
 	armNodes, compatible, err := CheckARMCompatibility(ctx, client, coRef)
 	if err != nil {
-		sendError("arch", fmt.Sprintf("Architecture check failed: %v", err))
+		ps.sendError("arch", fmt.Sprintf("Architecture check failed: %v", err))
 		return
 	}
 	if !compatible {
-		sendError("arch", fmt.Sprintf("Version %s does not support ARM64 (%d ARM nodes detected). Use v1.7.0+.", coRef, armNodes))
+		ps.sendError("arch", fmt.Sprintf("Version %s does not support ARM64 (%d ARM nodes detected). Use v1.7.0+.", coRef, armNodes))
 		return
 	}
 	if armNodes > 0 {
-		sendProgress("arch", fmt.Sprintf("ARM64 compatible (%d ARM nodes)", armNodes))
+		ps.send("arch", fmt.Sprintf("ARM64 compatible (%d ARM nodes)", armNodes))
 	} else {
-		sendProgress("arch", "x86_64 cluster detected")
+		ps.send("arch", "x86_64 cluster detected")
 	}
 
 	// Step 4: Create namespace
-	sendProgress("namespace", fmt.Sprintf("Creating namespace %s...", namespace))
+	ps.send("namespace", fmt.Sprintf("Creating namespace %s...", namespace))
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}
 	_, err = client.Clientset.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		sendError("namespace", fmt.Sprintf("Failed to create namespace: %v", err))
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		ps.sendError("namespace", fmt.Sprintf("Failed to create namespace: %v", err))
 		return
 	}
-	sendProgress("namespace", fmt.Sprintf("Namespace %s ready", namespace))
+	ps.send("namespace", fmt.Sprintf("Namespace %s ready", namespace))
 
 	// Step 5: Detect install source
-	sendProgress("source", "Checking for Red Hat certified operator...")
+	ps.send("source", "Checking for Red Hat certified operator...")
 	useRedHat, err := CheckRedHatOperator(ctx, client)
 	if err != nil {
 		slog.Warn("Red Hat operator check error, falling back to community", "error", err)
@@ -261,49 +254,49 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 
 	// Step 6: Install operator
 	if useRedHat {
-		sendProgress("install", "Installing Red Hat certified Compliance Operator...")
+		ps.send("install", "Installing Red Hat certified Compliance Operator...")
 		if err := installRedHatOperator(ctx, client, namespace); err != nil {
-			sendError("install", fmt.Sprintf("Red Hat operator install failed: %v", err))
+			ps.sendError("install", fmt.Sprintf("Red Hat operator install failed: %v", err))
 			return
 		}
 	} else {
-		sendProgress("install", "Installing community Compliance Operator...")
+		ps.send("install", "Installing community Compliance Operator...")
 		if err := installCommunityOperator(ctx, client, namespace, coRef); err != nil {
-			sendError("install", fmt.Sprintf("Community operator install failed: %v", err))
+			ps.sendError("install", fmt.Sprintf("Community operator install failed: %v", err))
 			return
 		}
 	}
 
 	// Step 7: Wait for CSV
-	sendProgress("csv", "Waiting for ClusterServiceVersion...")
+	ps.send("csv", "Waiting for ClusterServiceVersion...")
 	csvName, err := waitForCSV(ctx, client, namespace)
 	if err != nil {
-		sendError("csv", fmt.Sprintf("CSV wait failed: %v", err))
+		ps.sendError("csv", fmt.Sprintf("CSV wait failed: %v", err))
 		return
 	}
-	sendProgress("csv", fmt.Sprintf("CSV %s succeeded", csvName))
+	ps.send("csv", fmt.Sprintf("CSV %s succeeded", csvName))
 
 	// Step 8: Apply supplemental RBAC
-	sendProgress("rbac", "Applying supplemental RBAC for Job creation...")
+	ps.send("rbac", "Applying supplemental RBAC for Job creation...")
 	if err := applySupplementalRBAC(ctx, client, namespace); err != nil {
 		slog.Warn("supplemental RBAC failed", "error", err)
 	}
-	sendProgress("rbac", "Supplemental RBAC applied")
+	ps.send("rbac", "Supplemental RBAC applied")
 
 	// Step 9: Wait for pods
-	sendProgress("pods", "Waiting for operator pods to be ready...")
+	ps.send("pods", "Waiting for operator pods to be ready...")
 	if err := waitForPodsReady(ctx, client, namespace); err != nil {
 		slog.Warn("some pods may not be ready", "error", err)
 	}
-	sendProgress("pods", "Operator pods are ready")
+	ps.send("pods", "Operator pods are ready")
 
 	// Step 10: Wait for ProfileBundles
-	sendProgress("bundles", "Waiting for ProfileBundles to become VALID...")
+	ps.send("bundles", "Waiting for ProfileBundles to become VALID...")
 	if err := waitForProfileBundles(ctx, client, namespace); err != nil {
 		slog.Warn("ProfileBundles may not be valid", "error", err)
 	}
 
-	sendDone("complete", "Compliance Operator installed successfully")
+	ps.sendDone("complete", "Compliance Operator installed successfully")
 }
 
 // Uninstall removes the Compliance Operator and all its resources.
@@ -311,22 +304,12 @@ func Install(ctx context.Context, client *k8s.Client, namespace, coRef string, p
 func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progress chan<- InstallProgress) {
 	defer close(progress)
 
-	sendProgress := func(step, message string) {
-		progress <- InstallProgress{Step: step, Message: message}
-	}
-	sendError := func(step, message string) {
-		progress <- InstallProgress{Step: step, Message: message, Error: message, Done: true}
-	}
-	sendDone := func(step, message string) {
-		progress <- InstallProgress{Step: step, Message: message, Done: true}
-	}
+	ps := newProgressSender(progress)
 
 	if client == nil {
-		sendError("init", "Kubernetes client is not connected")
+		ps.sendError("init", "Kubernetes client is not connected")
 		return
 	}
-
-	finalizerPatch := []byte(`{"metadata":{"finalizers":null}}`)
 
 	// Step 1: Delete all Compliance CRs (remove finalizers first)
 	complianceCRDs := []struct {
@@ -344,7 +327,7 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 	}
 
 	for _, crd := range complianceCRDs {
-		sendProgress("cleanup", fmt.Sprintf("Removing %s...", crd.name))
+		ps.send("cleanup", fmt.Sprintf("Removing %s...", crd.name))
 		items, err := client.Dynamic.Resource(crd.gvr).Namespace(namespace).
 			List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -354,25 +337,25 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 		for _, item := range items.Items {
 			// Remove finalizers
 			_, _ = client.Dynamic.Resource(crd.gvr).Namespace(namespace).
-				Patch(ctx, item.GetName(), types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
+				Patch(ctx, item.GetName(), types.MergePatchType, FinalizerRemovalPatch, metav1.PatchOptions{})
 			// Delete
 			_ = client.Dynamic.Resource(crd.gvr).Namespace(namespace).
 				Delete(ctx, item.GetName(), metav1.DeleteOptions{})
 		}
 	}
-	sendProgress("cleanup", "Compliance resources removed")
+	ps.send("cleanup", "Compliance resources removed")
 
 	// Step 2: Delete Subscription
-	sendProgress("subscription", "Deleting Subscription...")
+	ps.send("subscription", "Deleting Subscription...")
 	err := client.Dynamic.Resource(subscriptionGVR).Namespace(namespace).
 		Delete(ctx, subscriptionName, metav1.DeleteOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		slog.Warn("error deleting Subscription", "error", err)
 	}
-	sendProgress("subscription", "Subscription deleted")
+	ps.send("subscription", "Subscription deleted")
 
 	// Step 3: Delete CSV
-	sendProgress("csv", "Deleting ClusterServiceVersion...")
+	ps.send("csv", "Deleting ClusterServiceVersion...")
 	csvs, err := client.Dynamic.Resource(csvGVR).Namespace(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err == nil {
@@ -381,31 +364,31 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 				Delete(ctx, csv.GetName(), metav1.DeleteOptions{})
 		}
 	}
-	sendProgress("csv", "ClusterServiceVersion deleted")
+	ps.send("csv", "ClusterServiceVersion deleted")
 
 	// Step 4: Delete OperatorGroup
-	sendProgress("operatorgroup", "Deleting OperatorGroup...")
+	ps.send("operatorgroup", "Deleting OperatorGroup...")
 	err = client.Dynamic.Resource(operatorGroupGVR).Namespace(namespace).
 		Delete(ctx, operatorName, metav1.DeleteOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		slog.Warn("error deleting OperatorGroup", "error", err)
 	}
-	sendProgress("operatorgroup", "OperatorGroup deleted")
+	ps.send("operatorgroup", "OperatorGroup deleted")
 
 	// Step 5: Delete CatalogSource (community install)
-	sendProgress("catalogsource", "Deleting CatalogSource...")
+	ps.send("catalogsource", "Deleting CatalogSource...")
 	err = client.Dynamic.Resource(catalogSourceGVR).Namespace(marketplaceNS).
 		Delete(ctx, operatorName, metav1.DeleteOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		slog.Warn("error deleting CatalogSource", "error", err)
 	}
-	sendProgress("catalogsource", "CatalogSource deleted")
+	ps.send("catalogsource", "CatalogSource deleted")
 
 	// Step 6: Delete namespace
-	sendProgress("namespace", fmt.Sprintf("Deleting namespace %s...", namespace))
+	ps.send("namespace", fmt.Sprintf("Deleting namespace %s...", namespace))
 	err = client.Clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		sendError("namespace", fmt.Sprintf("Failed to delete namespace: %v", err))
+	if err != nil && !k8serrors.IsNotFound(err) {
+		ps.sendError("namespace", fmt.Sprintf("Failed to delete namespace: %v", err))
 		return
 	}
 
@@ -417,14 +400,14 @@ func Uninstall(ctx context.Context, client *k8s.Client, namespace string, progre
 		}
 		select {
 		case <-ctx.Done():
-			sendError("namespace", "Timed out waiting for namespace deletion")
+			ps.sendError("namespace", "Timed out waiting for namespace deletion")
 			return
 		case <-time.After(5 * time.Second):
 		}
 	}
-	sendProgress("namespace", "Namespace deleted")
+	ps.send("namespace", "Namespace deleted")
 
-	sendDone("complete", "Compliance Operator uninstalled successfully")
+	ps.sendDone("complete", "Compliance Operator uninstalled successfully")
 }
 
 // GetStatus returns the current status of the Compliance Operator.
@@ -509,7 +492,7 @@ func installRedHatOperator(ctx context.Context, client *k8s.Client, namespace st
 	}
 	_, err := client.Dynamic.Resource(operatorGroupGVR).Namespace(namespace).
 		Create(ctx, og, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating OperatorGroup: %w", err)
 	}
 
@@ -533,7 +516,7 @@ func installRedHatOperator(ctx context.Context, client *k8s.Client, namespace st
 	}
 	_, err = client.Dynamic.Resource(subscriptionGVR).Namespace(namespace).
 		Create(ctx, sub, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating Subscription: %w", err)
 	}
 
@@ -574,7 +557,7 @@ func installCommunityOperator(ctx context.Context, client *k8s.Client, namespace
 	}
 	_, err := client.Dynamic.Resource(catalogSourceGVR).Namespace(marketplaceNS).
 		Create(ctx, cs, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating CatalogSource: %w", err)
 	}
 
@@ -594,7 +577,7 @@ func installCommunityOperator(ctx context.Context, client *k8s.Client, namespace
 	}
 	_, err = client.Dynamic.Resource(operatorGroupGVR).Namespace(namespace).
 		Create(ctx, og, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating OperatorGroup: %w", err)
 	}
 
@@ -618,7 +601,7 @@ func installCommunityOperator(ctx context.Context, client *k8s.Client, namespace
 	}
 	_, err = client.Dynamic.Resource(subscriptionGVR).Namespace(namespace).
 		Create(ctx, sub, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating Subscription: %w", err)
 	}
 
@@ -686,7 +669,7 @@ func applySupplementalRBAC(ctx context.Context, client *k8s.Client, namespace st
 		},
 	}
 	_, err := client.Clientset.RbacV1().Roles(namespace).Create(ctx, role, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating Role: %w", err)
 	}
 
@@ -710,7 +693,7 @@ func applySupplementalRBAC(ctx context.Context, client *k8s.Client, namespace st
 		},
 	}
 	_, err = client.Clientset.RbacV1().RoleBindings(namespace).Create(ctx, rb, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("creating RoleBinding: %w", err)
 	}
 

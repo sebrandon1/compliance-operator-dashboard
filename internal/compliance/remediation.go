@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -78,7 +79,7 @@ func ApplyRemediation(ctx context.Context, client *k8s.Client, namespace, name s
 	}
 
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if k8serrors.IsAlreadyExists(err) {
 			// Update instead
 			if objNamespace != "" {
 				existing, getErr := client.Dynamic.Resource(gvr).Namespace(objNamespace).
@@ -181,7 +182,7 @@ func RemoveRemediation(ctx context.Context, client *k8s.Client, namespace, name 
 	}
 
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if k8serrors.IsNotFound(err) {
 			result.Applied = false
 			result.Message = fmt.Sprintf("Object %s %s was already removed", kind, objName)
 			return result, nil
