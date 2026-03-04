@@ -14,8 +14,8 @@ import (
 	"github.com/sebrandon1/compliance-operator-dashboard/internal/k8s"
 )
 
-// isCRDNotFound returns true if the error indicates the CRD is not installed.
-func isCRDNotFound(err error) bool {
+// IsCRDNotFound returns true if the error indicates the CRD is not installed.
+func IsCRDNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -44,7 +44,7 @@ func GetComplianceResults(ctx context.Context, client *k8s.Client, namespace str
 	results, err := client.Dynamic.Resource(complianceCheckResultGVR).Namespace(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		if isCRDNotFound(err) {
+		if IsCRDNotFound(err) {
 			return &ComplianceData{ScanDate: ScanTimestamp(), Summary: Summary{}}, nil
 		}
 		return nil, fmt.Errorf("listing ComplianceCheckResults: %w", err)
@@ -147,7 +147,7 @@ func GetFilteredResults(ctx context.Context, client *k8s.Client, namespace strin
 	results, err := client.Dynamic.Resource(complianceCheckResultGVR).Namespace(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		if isCRDNotFound(err) {
+		if IsCRDNotFound(err) {
 			return []CheckResult{}, nil
 		}
 		return nil, fmt.Errorf("listing ComplianceCheckResults: %w", err)
@@ -192,7 +192,7 @@ func ListRemediations(ctx context.Context, client *k8s.Client, namespace string)
 	remediations, err := client.Dynamic.Resource(complianceRemediationGVR).Namespace(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		if isCRDNotFound(err) {
+		if IsCRDNotFound(err) {
 			return []RemediationInfo{}, nil
 		}
 		return nil, fmt.Errorf("listing ComplianceRemediations: %w", err)

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ChevronUp, ChevronDown, Wrench } from 'lucide-react';
-import type { CheckResult, Severity, CheckStatus } from '../types/api';
+import { severityOrder, severityBadgeClass, statusBadgeClass } from '../lib/badges';
+import type { CheckResult } from '../types/api';
 
 interface ResultsTableProps {
   results: CheckResult[];
@@ -13,26 +14,7 @@ interface ResultsTableProps {
 type SortField = 'name' | 'severity' | 'status' | 'scan';
 type SortDirection = 'asc' | 'desc';
 
-const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
 const statusOrder: Record<string, number> = { FAIL: 0, MANUAL: 1, PASS: 2, SKIP: 3, 'NOT-APPLICABLE': 4 };
-
-function statusBadgeClass(status: CheckStatus): string {
-  switch (status) {
-    case 'PASS': return 'badge-pass';
-    case 'FAIL': return 'badge-fail';
-    case 'MANUAL': return 'badge-manual';
-    default: return 'badge-skip';
-  }
-}
-
-function severityBadgeClass(severity: Severity): string {
-  switch (severity) {
-    case 'high': return 'badge-high';
-    case 'medium': return 'badge-medium';
-    case 'low': return 'badge-low';
-    default: return 'badge-skip';
-  }
-}
 
 // Find a matching remediation name for a check (exact or prefix match)
 function findRemediation(checkName: string, remediationNames?: Set<string>): string | null {
@@ -71,27 +53,14 @@ export default function ResultsTable({ results, initialSeverity = '', remediatio
   };
 
   const filtered = useMemo(() => {
-    let items = [...results];
-
-    if (search) {
-      const lower = search.toLowerCase();
-      items = items.filter(r =>
-        r.name.toLowerCase().includes(lower) ||
-        r.description.toLowerCase().includes(lower)
-      );
-    }
-
-    if (severityFilter) {
-      items = items.filter(r => r.severity === severityFilter);
-    }
-
-    if (statusFilter) {
-      items = items.filter(r => r.status === statusFilter);
-    }
-
-    if (scanFilter) {
-      items = items.filter(r => r.scan_name === scanFilter);
-    }
+    const lower = search ? search.toLowerCase() : '';
+    const items = results.filter(r => {
+      if (lower && !r.name.toLowerCase().includes(lower) && !r.description.toLowerCase().includes(lower)) return false;
+      if (severityFilter && r.severity !== severityFilter) return false;
+      if (statusFilter && r.status !== statusFilter) return false;
+      if (scanFilter && r.scan_name !== scanFilter) return false;
+      return true;
+    });
 
     items.sort((a, b) => {
       let cmp = 0;

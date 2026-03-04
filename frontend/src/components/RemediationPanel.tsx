@@ -2,20 +2,12 @@ import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, AlertTriangle, RotateCw, Shield, CheckSquare, Square, Loader2, Trash2 } from 'lucide-react';
 import { remediationApi } from '../lib/api';
+import { severityBadgeClass } from '../lib/badges';
 import type { RemediationInfo, RemediationResult, Severity } from '../types/api';
 
 interface RemediationPanelProps {
   remediations: RemediationInfo[];
   onApplied: () => void;
-}
-
-function severityBadgeClass(severity: Severity): string {
-  switch (severity) {
-    case 'high': return 'badge-high';
-    case 'medium': return 'badge-medium';
-    case 'low': return 'badge-low';
-    default: return 'badge-skip';
-  }
 }
 
 export default function RemediationPanel({ remediations, onApplied }: RemediationPanelProps) {

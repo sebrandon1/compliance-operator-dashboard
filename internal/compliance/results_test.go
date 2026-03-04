@@ -244,9 +244,9 @@ func TestIsCRDNotFound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isCRDNotFound(tt.err)
+			got := IsCRDNotFound(tt.err)
 			if got != tt.want {
-				t.Errorf("isCRDNotFound(%v) = %v, want %v", tt.err, got, tt.want)
+				t.Errorf("IsCRDNotFound(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
 	}

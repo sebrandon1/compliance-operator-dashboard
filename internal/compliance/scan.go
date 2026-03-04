@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -70,7 +71,7 @@ func CreateScan(ctx context.Context, client *k8s.Client, opts ScanOptions) error
 	_, err := client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Create(ctx, ssb, metav1.CreateOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if k8serrors.IsAlreadyExists(err) {
 			// Update instead
 			_, err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 				Update(ctx, ssb, metav1.UpdateOptions{})
@@ -164,7 +165,7 @@ func CreatePeriodicScan(ctx context.Context, client *k8s.Client, opts PeriodicSc
 	_, err := client.Dynamic.Resource(scanSettingGVR).Namespace(namespace).
 		Create(ctx, ss, metav1.CreateOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if k8serrors.IsAlreadyExists(err) {
 			ss.SetResourceVersion("")
 			existing, getErr := client.Dynamic.Resource(scanSettingGVR).Namespace(namespace).
 				Get(ctx, "periodic-setting", metav1.GetOptions{})
@@ -240,7 +241,7 @@ func createOrUpdateSSB(ctx context.Context, client *k8s.Client, namespace, name 
 	_, err := client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Create(ctx, ssb, metav1.CreateOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if k8serrors.IsAlreadyExists(err) {
 			existing, getErr := client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 				Get(ctx, name, metav1.GetOptions{})
 			if getErr == nil {
@@ -271,7 +272,7 @@ func GetScanStatus(ctx context.Context, client *k8s.Client, namespace string) ([
 	suites, err := client.Dynamic.Resource(complianceSuiteGVR).Namespace(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		if isCRDNotFound(err) {
+		if IsCRDNotFound(err) {
 			return []SuiteStatus{}, nil
 		}
 		return nil, fmt.Errorf("listing ComplianceSuites: %w", err)
@@ -430,31 +431,29 @@ func DeleteScan(ctx context.Context, client *k8s.Client, namespace, suiteName st
 		return fmt.Errorf("kubernetes client is nil")
 	}
 
-	finalizerPatch := []byte(`{"metadata":{"finalizers":null}}`)
-
 	// Remove finalizers and delete the ComplianceSuite
 	_, err := client.Dynamic.Resource(complianceSuiteGVR).Namespace(namespace).
-		Patch(ctx, suiteName, types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+		Patch(ctx, suiteName, types.MergePatchType, FinalizerRemovalPatch, metav1.PatchOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("removing finalizers from ComplianceSuite %s: %w", suiteName, err)
 	}
 
 	err = client.Dynamic.Resource(complianceSuiteGVR).Namespace(namespace).
 		Delete(ctx, suiteName, metav1.DeleteOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("deleting ComplianceSuite %s: %w", suiteName, err)
 	}
 
 	// Remove finalizers and delete the matching ScanSettingBinding (non-fatal if not found or name mismatch)
 	_, err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
-		Patch(ctx, suiteName, types.MergePatchType, finalizerPatch, metav1.PatchOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+		Patch(ctx, suiteName, types.MergePatchType, FinalizerRemovalPatch, metav1.PatchOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
 		slog.Warn("could not remove finalizers from ScanSettingBinding", "name", suiteName, "error", err)
 	}
 
 	err = client.Dynamic.Resource(scanSettingBindingGVR).Namespace(namespace).
 		Delete(ctx, suiteName, metav1.DeleteOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		slog.Warn("could not delete ScanSettingBinding", "name", suiteName, "error", err)
 	}
 
@@ -470,7 +469,7 @@ func ListProfiles(ctx context.Context, client *k8s.Client, namespace string) ([]
 	profiles, err := client.Dynamic.Resource(profileGVR).Namespace(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		if isCRDNotFound(err) {
+		if IsCRDNotFound(err) {
 			return []ProfileInfo{}, nil
 		}
 		return nil, fmt.Errorf("listing Profiles: %w", err)
