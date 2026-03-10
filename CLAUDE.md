@@ -59,6 +59,11 @@ There are two distribution channels for the Compliance Operator with **different
 
 The dashboard auto-detects which source to use: if the cluster has `redhat-operators` in `openshift-marketplace`, it installs the Red Hat certified version (which may have a higher version number than the upstream). Otherwise it falls back to the community catalog image from `ghcr.io`. The `--co-ref` flag only applies to the community install path.
 
+## Requirements
+
+- Go 1.26+
+- Node.js (for frontend development)
+
 ## Flags
 
 - `--kubeconfig` / `$KUBECONFIG` / `~/.kube/config`
