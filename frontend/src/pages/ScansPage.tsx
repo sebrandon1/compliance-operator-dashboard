@@ -189,13 +189,6 @@ export default function ScansPage() {
     }
   }, [clusterStatus?.connected, updateCounter, fetchScans, fetchProfiles]);
 
-  // Auto-generate scan name from profile
-  useEffect(() => {
-    if (selectedProfile) {
-      setScanName(selectedProfile + '-scan');
-    }
-  }, [selectedProfile]);
-
   const handleCreateScan = async () => {
     if (!selectedProfile) return;
     setCreating(true);
@@ -349,7 +342,10 @@ export default function ScansPage() {
                   <select
                     className="input w-full"
                     value={selectedProfile}
-                    onChange={e => setSelectedProfile(e.target.value)}
+                    onChange={e => {
+                      setSelectedProfile(e.target.value);
+                      if (e.target.value) setScanName(e.target.value + '-scan');
+                    }}
                   >
                     <option value="">Select a profile...</option>
                     {profiles.map(p => (
@@ -564,6 +560,7 @@ export default function ScansPage() {
                     className="btn btn-secondary text-xs px-3 py-1.5"
                     onClick={() => {
                       setSelectedProfile(profile.name);
+                      setScanName(profile.name + '-scan');
                       setShowNewScan(true);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
