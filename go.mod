@@ -2,7 +2,7 @@ module github.com/sebrandon1/compliance-operator-dashboard
 
 go 1.26.0
 
-toolchain go1.26.2
+toolchain go1.26.3
 
 require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
