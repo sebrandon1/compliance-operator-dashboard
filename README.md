@@ -43,6 +43,6 @@ make clean             # Remove build artifacts
 
 ## Requirements
 
-- Go 1.22+
+- Go 1.26+
 - Node.js 18+
 - Access to an OpenShift cluster with kubeconfig configured

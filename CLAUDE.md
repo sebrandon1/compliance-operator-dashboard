@@ -15,14 +15,19 @@ make build
 # Development
 make frontend-dev          # Start Vite dev server (port 5173, proxies to :8080)
 make run                   # Build and run the Go binary
+make stop                  # Kill running dashboard processes
 
 # Testing
 make test                  # Run Go unit tests
 make lint                  # Run golangci-lint
+make frontend-test         # Run frontend unit tests
+make frontend-lint         # Run ESLint on frontend
 
 # Individual steps
 make frontend-install      # npm install in frontend/
 make frontend-build        # Build frontend to frontend/dist/
+make embed-frontend        # Copy frontend dist for Go embedding
+make docker-build          # Build container image
 make clean                 # Remove build artifacts
 ```
 
@@ -39,7 +44,7 @@ make clean                 # Remove build artifacts
   - `storage.go` - Storage class detection
 - `internal/api/` - HTTP server with go:embed, REST handlers, middleware
 - `internal/ws/` - WebSocket hub, client, K8s watch bridge
-- `frontend/` - React 18 + TypeScript + Vite + Tailwind + Zustand
+- `frontend/` - React 19 + TypeScript + Vite + Tailwind + Zustand
 
 ## Key Patterns
 
