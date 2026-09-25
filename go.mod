@@ -1,6 +1,6 @@
 module github.com/sebrandon1/compliance-operator-dashboard
 
-go 1.27.0
+go 1.27.1
 
 toolchain go1.27.1
 
