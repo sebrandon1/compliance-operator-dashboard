@@ -61,7 +61,7 @@ The dashboard auto-detects which source to use: if the cluster has `redhat-opera
 
 ## Requirements
 
-- Go 1.26+
+- Go 1.27+
 - Node.js (for frontend development)
 
 ## Flags
