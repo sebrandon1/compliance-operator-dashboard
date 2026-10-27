@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/sebrandon1/compliance-operator-dashboard/internal/config"
+	"github.com/sebrandon1/go-toolbox/cobrautil"
+	"github.com/sebrandon1/go-toolbox/confkit"
 	"github.com/spf13/cobra"
 )
 
@@ -19,11 +21,11 @@ result visualization, and one-click remediation with real-time updates.`,
 }
 
 func Execute() error {
-	return rootCmd.Execute()
+	return cobrautil.Execute(rootCmd)
 }
 
 func init() {
-	defaultKubeconfig := os.Getenv("KUBECONFIG")
+	defaultKubeconfig := confkit.EnvString("KUBECONFIG", "")
 	if defaultKubeconfig == "" {
 		home, err := os.UserHomeDir()
 		if err == nil {
@@ -31,17 +33,11 @@ func init() {
 		}
 	}
 
-	defaultNamespace := os.Getenv("COMPLIANCE_NAMESPACE")
-	if defaultNamespace == "" {
-		defaultNamespace = "openshift-compliance"
-	}
+	defaultNamespace := confkit.EnvString("COMPLIANCE_NAMESPACE", "openshift-compliance")
 
-	defaultCORef := os.Getenv("COMPLIANCE_OPERATOR_REF")
+	defaultCORef := confkit.EnvString("COMPLIANCE_OPERATOR_REF", "")
 
-	defaultLogFormat := os.Getenv("LOG_FORMAT")
-	if defaultLogFormat == "" {
-		defaultLogFormat = "text"
-	}
+	defaultLogFormat := confkit.EnvString("LOG_FORMAT", "text")
 
 	rootCmd.PersistentFlags().StringVar(&cfg.KubeConfig, "kubeconfig", defaultKubeconfig,
 		"Path to kubeconfig file (env: KUBECONFIG)")
