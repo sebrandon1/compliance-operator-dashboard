@@ -2,9 +2,7 @@ package compliance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -19,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/sebrandon1/compliance-operator-dashboard/internal/k8s"
+	"github.com/sebrandon1/go-toolbox/httpx"
 )
 
 const (
@@ -51,35 +50,26 @@ var (
 	}
 )
 
+// githubClient is shared by GitHub release lookups. The client-level timeout is
+// disabled to preserve the previous http.DefaultClient behavior; callers bound
+// the request through ctx.
+var githubClient = newGitHubClient()
+
+func newGitHubClient() *httpx.Client {
+	client := httpx.NewClient(httpx.Options{})
+	client.HTTPClient.Timeout = 0
+	return client
+}
+
 // GetLatestRelease fetches the latest Compliance Operator release tag from GitHub.
 func GetLatestRelease(ctx context.Context) (string, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", coRepoOwner, coRepoName)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("fetching latest release: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("reading response: %w", err)
-	}
-
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.Unmarshal(body, &release); err != nil {
-		return "", fmt.Errorf("parsing response: %w", err)
+	if err := githubClient.DoJSON(ctx, http.MethodGet, url, nil, &release); err != nil {
+		return "", fmt.Errorf("fetching latest release: %w", err)
 	}
 
 	return release.TagName, nil

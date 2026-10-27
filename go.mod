@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
+	github.com/sebrandon1/go-toolbox v0.1.0
 	github.com/spf13/cobra v1.10.2
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
